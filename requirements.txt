@@ -1,0 +1,9 @@
+numpy
+torch
+librosa
+unidecode
+inflect
+scipy
+unidecode
+pillow
+tensorboardX
