@@ -15,12 +15,12 @@ Google Drive: https://drive.google.com/drive/folders/1uRgeFbavkb3-EC2bPfs2t5oqr-
 
 ### Project's Dir
     .
-    ├── docs                    # Documentation files
-    ├── model                   # Training Model (for development)
-    ├── database                # Input videos to train (for development)
-    ├── frontend                # Application's interface (for production)
-    ├── backend                 # AI Model -> API (for production)
-    ├── docker                  # Build and deploy app (for production)
+    ├── docs/                    # Documentation files
+    ├── model/                   # Training Model (for development)
+    ├── database/                # Input videos to train (for development)
+    ├── frontend/                # Application's interface (for production)
+    ├── backend/                 # AI Model -> API (for production)
+    ├── docker/                  # Build and deploy app (for production)
     ├── requirements.txt
     ├── LICENSE
     └── README.md
