@@ -1,4 +1,4 @@
-## Speech-Reproduction
+## Safe Image Filter for Children
 
 - **Created by**: Tranlybuu & Levantan & Tranvantuanphong
 - **Coding version**: Python 3.9.0
@@ -18,7 +18,8 @@ Google Drive: https://drive.google.com/drive/folders/1uRgeFbavkb3-EC2bPfs2t5oqr-
     ├── docs/                    # Documentation files
     ├── model/                   # Training Model (for development)
     ├── database/                # Input videos to train (for development)
-    ├── frontend/                # Application's interface (for production)
+    ├── frontend/                # Application's interface - Website (for production)
+    ├── mobile/                  # Application's interface - Mobile App (for production)
     ├── backend/                 # AI Model -> API (for production)
     ├── docker/                  # Build and deploy app (for production)
     ├── requirements.txt
