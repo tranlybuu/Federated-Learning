@@ -1,6 +1,6 @@
 ## Speech-Reproduction
 
-- **Created by**: Tranlybuu & Levantan
+- **Created by**: Tranlybuu & Levantan & Tranvantuanphong
 - **Coding version**: Python 3.9.0
 
 ## Document
