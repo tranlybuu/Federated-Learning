@@ -1,3 +1,5 @@
+![](./docs/banner.png)
+
 ## Safe Image Filter for Children
 
 - **Created by**: Tranlybuu & Levantan & Tranvantuanphong
