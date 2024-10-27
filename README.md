@@ -1,9 +1,7 @@
-![](./docs/banner.png)
-
-## Safe Image Filter for Children
+## Federate Learning and Application
 
 - **Created by**: Tranlybuu & Levantan & Tranvantuanphong
-- **Coding version**: Python 3.9.0
+- **Coding version**: Python 3.11.0
 
 ## Document
 
