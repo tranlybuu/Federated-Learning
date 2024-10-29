@@ -1,0 +1,8 @@
+Flask==3.0.3
+flask_cors==5.0.0
+flwr==1.11.1
+matplotlib==3.6.3
+numpy==1.24.3
+Pillow==10.4.0
+tensorflow==2.17.0
+tensorflow_intel==2.17.0
