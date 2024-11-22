@@ -1,7 +1,8 @@
 import tensorflow as tf
-from backend.utils.config import MODEL_CONFIG
+from ..utils.config import MODEL_CONFIG
 
 def create_model():
+    """Create and return CNN model for MNIST."""
     model = tf.keras.Sequential([
         tf.keras.layers.Input(shape=MODEL_CONFIG['input_shape']),
         tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
