@@ -1,7 +1,7 @@
 import flwr as fl
 import tensorflow as tf
 from .model import create_model
-from utils.config import FL_CONFIG, MODEL_PATH
+from ..utils.config import FL_CONFIG, MODEL_PATH
 import matplotlib.pyplot as plt
 import numpy as np
 

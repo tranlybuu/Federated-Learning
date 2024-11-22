@@ -3,8 +3,8 @@ from flask_cors import CORS
 import numpy as np
 from PIL import Image
 import io
-from federated_learning.model import create_model
-from utils.config import MODEL_PATH, API_CONFIG
+from ..federated_learning.model import create_model
+from ..utils.config import MODEL_PATH, API_CONFIG
 import os
 import tensorflow as tf
 
