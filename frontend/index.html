@@ -50,7 +50,7 @@
     </div>
 
     <script>
-        const api = 'http://localhost:5000'
+        const api = 'http://192.168.1.210:5000'
         $(document).ready(function () {
             // Gọi API sức khỏe khi mở trang
             $.get(api + '/health', function (data) {
@@ -77,7 +77,7 @@
 
                     // Gửi URL ảnh
                     $.ajax({
-                        url: 'http://localhost:5000/recognize',
+                        url: 'http://192.168.1.210:5000/recognize',
                         type: 'POST',
                         data: JSON.stringify({ url: imageUrl }),
                         contentType: 'application/json',

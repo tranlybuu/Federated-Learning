@@ -24,7 +24,7 @@ FL_CONFIG = {
 DATA_CONFIG = {
     'batch_size': 32,
     'local_epochs': 1,
-    'num_clients': 5,
+    'num_clients': 3,
     'validation_split': 0.1,
 }
 
