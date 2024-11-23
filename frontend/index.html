@@ -50,7 +50,7 @@
     </div>
 
     <script>
-        const api = 'http://192.168.1.210:5000'
+        const api = 'http://localhost:5000'
         $(document).ready(function () {
             // Gọi API sức khỏe khi mở trang
             $.get(api + '/health', function (data) {
@@ -68,63 +68,68 @@
             });
 
             $('#uploadButton').click(function () {
-                const fileInput = $('#imageInput')[0];
-                const imageUrl = $('#imageUrl').val().trim();
+                let fileInput = $('#imageInput')[0];
+                let imageUrl = $('#imageUrl').val().trim();
+                const button = $(this);
 
-                if (imageUrl) {
-                    // Hiển thị ảnh từ URL
-                    $('#preview').attr('src', imageUrl).removeClass('hidden');
-
-                    // Gửi URL ảnh
-                    $.ajax({
-                        url: 'http://192.168.1.210:5000/recognize',
-                        type: 'POST',
-                        data: JSON.stringify({ url: imageUrl }),
-                        contentType: 'application/json',
-                        success: function (data) {
-                            if (data.success) {
-                                $('#digit').text(data.digit);
-                                $('#confidence').text(data.confidence);
-                                $('#result').removeClass('hidden');
-                            } else {
-                                alert('Có lỗi: ' + data.error);
-                            }
-                        },
-                        error: function () {
-                            alert('Có lỗi xảy ra khi gửi dữ liệu.');
-                        }
-                    });
-                } else if (fileInput.files.length > 0) {
-                    // Hiển thị ảnh từ file
-                    const file = fileInput.files[0];
-                    const reader = new FileReader();
-                    reader.onload = function (e) {
-                        $('#preview').attr('src', e.target.result).removeClass('hidden');
-                    };
-                    reader.readAsDataURL(file);
-
-                    // Gửi ảnh trực tiếp
+                const sendImage = (data) => {
                     $.ajax({
                         url: api + '/recognize',
                         type: 'POST',
-                        data: file, // Gửi dữ liệu ảnh trực tiếp
+                        data: data,
                         processData: false,
                         contentType: false,
-                        success: function (data) {
-                            if (data.success) {
-                                $('#digit').text(data.digit);
-                                $('#confidence').text(data.confidence);
+                        success: function (response) {
+                            if (response.success) {
+                                $('#digit').text(response.digit);
+                                $('#confidence').text((response.confidence * 100).toFixed(1) + '%');
                                 $('#result').removeClass('hidden');
+                                button.text('Try Again'); // Đổi nút thành "Try Again"
                             } else {
-                                alert('Có lỗi: ' + data.error);
+                                alert('Có lỗi: ' + response.error);
                             }
                         },
                         error: function () {
                             alert('Có lỗi xảy ra khi gửi dữ liệu.');
                         }
                     });
+                };
+
+                if (button.text() === 'Try Again') {
+                    // Reset lại trạng thái ban đầu
+                    $('#preview').attr('src', '').addClass('hidden');
+                    $('#digit').text('');
+                    $('#confidence').text('');
+                    $('#result').addClass('hidden');
+                    $('#imageInput').val('');
+                    $('#imageUrl').val('');
+                    button.text('Upload'); // Đổi nút về "Upload"
                 } else {
-                    alert('Vui lòng chọn một tệp ảnh hoặc nhập URL.');
+                    if (imageUrl) {
+                        // Hiển thị ảnh từ URL
+                        $('#preview').attr('src', imageUrl).removeClass('hidden');
+
+                        // Chuyển đổi URL thành Blob
+                        fetch(imageUrl)
+                            .then(response => response.blob())
+                            .then(blob => {
+                                sendImage(blob); // Gửi ảnh dưới dạng Blob
+                            })
+                            .catch(() => {
+                                alert('Có lỗi xảy ra khi tải ảnh từ URL.');
+                            });
+                    } else if (fileInput.files.length > 0) {
+                        // Hiển thị ảnh từ file
+                        const file = fileInput.files[0];
+                        const reader = new FileReader();
+                        reader.onload = function (e) {
+                            $('#preview').attr('src', e.target.result).removeClass('hidden');
+                            sendImage(file); // Gửi dữ liệu ảnh trực tiếp
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        alert('Vui lòng chọn một tệp ảnh hoặc nhập URL.');
+                    }
                 }
             });
         });
