@@ -29,7 +29,9 @@ class FederatedServer(fl.server.strategy.FedAvg):
     def aggregate_fit(self, server_round, results, failures):
         """Tổng hợp trọng số từ các clients."""
         self.current_round = server_round
-        print(f"Round {server_round}: Aggregating weights from {len(results)} clients")
+        print(f"\nRound {server_round}/{self.num_rounds}:")
+        print(f"Active clients: {len(results)}/{FL_CONFIG['min_available_clients']}")
+        print(f"Failures: {len(failures)}")
         
         if not results:
             print("No results received from clients")
@@ -148,6 +150,11 @@ class FederatedServer(fl.server.strategy.FedAvg):
         return self.model.evaluate(x_test, y_test, verbose=0)
 
 def start_server(num_rounds, min_fit_clients, min_evaluate_clients):
+    print("\nInitializing Federated Learning Server:")
+    print(f"Number of rounds: {num_rounds}")
+    print(f"Minimum clients required: {min_fit_clients}")
+    print("Waiting for clients to connect...")
+
     strategy = FederatedServer(
         fraction_fit=FL_CONFIG['fraction_fit'],
         fraction_evaluate=FL_CONFIG['fraction_evaluate'],
@@ -155,9 +162,8 @@ def start_server(num_rounds, min_fit_clients, min_evaluate_clients):
         min_evaluate_clients=min_evaluate_clients,
         min_available_clients=FL_CONFIG['min_available_clients'],
     )
-    strategy.num_rounds = num_rounds  # Add this line to track total rounds
+    strategy.num_rounds = num_rounds
 
-    # Start Flower server
     fl.server.start_server(
         server_address="127.0.0.1:8080",
         config=fl.server.ServerConfig(num_rounds=num_rounds),

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Ảnh</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        #preview {
+            max-width: 200px;
+            max-height: 200px;
+            border: 1px solid #ccc;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 flex items-center justify-center min-h-screen flex-col">
+
+    <div id="healthStatus" class="bg-green-100 text-green-800 p-4 rounded-lg mb-4 hidden"></div>
+
+    <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-4">Upload Ảnh Nhận Diện Số</h1>
+        <div class="flex">
+            <div>
+        
+                <div class="mb-4">
+                    <label class="block mb-1">Nhập URL Ảnh:</label>
+                    <input type="text" id="imageUrl" class="border rounded p-2 w-full" placeholder="Nhập URL ảnh">
+                </div>
+        
+                <div class="mb-4">
+                    <label class="block mb-1">Hoặc chọn tệp ảnh:</label>
+                    <input type="file" id="imageInput" class="border rounded p-2 w-full min-w-80" accept="image/*">
+                </div>
+                <button id="uploadButton" class="bg-blue-500 text-white px-4 py-2 rounded">Upload</button>
+            </div>
+    
+            <div>
+                <img id="preview" class="hidden" alt="Ảnh đã upload hoặc từ URL" />
+        
+                <div id="result" class="mt-4 hidden">
+                    <p class="font-semibold">Số nhận diện: <span id="digit"></span></p>
+                    <p class="font-semibold">Độ tin cậy: <span id="confidence"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const api = 'http://192.168.1.210:5000'
+        $(document).ready(function () {
+            // Gọi API sức khỏe khi mở trang
+            $.get(api + '/health', function (data) {
+                const statusContent = `
+                    <div class="font-semibold">Trạng thái API</div>
+                    <div class="mt-2">
+                        <p><strong>Model Loaded:</strong> ${data.model_loaded}</p>
+                        <p><strong>Model Path:</strong> ${data.model_path}</p>
+                        <p><strong>Status:</strong> ${data.status}</p>
+                    </div>
+                `;
+                $('#healthStatus').html(statusContent).removeClass('hidden');
+            }).fail(function () {
+                $('#healthStatus').text('Không thể kết nối với API.').removeClass('hidden');
+            });
+
+            $('#uploadButton').click(function () {
+                const fileInput = $('#imageInput')[0];
+                const imageUrl = $('#imageUrl').val().trim();
+
+                if (imageUrl) {
+                    // Hiển thị ảnh từ URL
+                    $('#preview').attr('src', imageUrl).removeClass('hidden');
+
+                    // Gửi URL ảnh
+                    $.ajax({
+                        url: 'http://192.168.1.210:5000/recognize',
+                        type: 'POST',
+                        data: JSON.stringify({ url: imageUrl }),
+                        contentType: 'application/json',
+                        success: function (data) {
+                            if (data.success) {
+                                $('#digit').text(data.digit);
+                                $('#confidence').text(data.confidence);
+                                $('#result').removeClass('hidden');
+                            } else {
+                                alert('Có lỗi: ' + data.error);
+                            }
+                        },
+                        error: function () {
+                            alert('Có lỗi xảy ra khi gửi dữ liệu.');
+                        }
+                    });
+                } else if (fileInput.files.length > 0) {
+                    // Hiển thị ảnh từ file
+                    const file = fileInput.files[0];
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        $('#preview').attr('src', e.target.result).removeClass('hidden');
+                    };
+                    reader.readAsDataURL(file);
+
+                    // Gửi ảnh trực tiếp
+                    $.ajax({
+                        url: api + '/recognize',
+                        type: 'POST',
+                        data: file, // Gửi dữ liệu ảnh trực tiếp
+                        processData: false,
+                        contentType: false,
+                        success: function (data) {
+                            if (data.success) {
+                                $('#digit').text(data.digit);
+                                $('#confidence').text(data.confidence);
+                                $('#result').removeClass('hidden');
+                            } else {
+                                alert('Có lỗi: ' + data.error);
+                            }
+                        },
+                        error: function () {
+                            alert('Có lỗi xảy ra khi gửi dữ liệu.');
+                        }
+                    });
+                } else {
+                    alert('Vui lòng chọn một tệp ảnh hoặc nhập URL.');
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

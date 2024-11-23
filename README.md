@@ -9,7 +9,7 @@ Google Drive: https://drive.google.com/drive/folders/1uRgeFbavkb3-EC2bPfs2t5oqr-
 
 ### Requirement
 
-- **Install Python**: `Python 3.9.0`
+- **Install Python**: `Python 3.11`
 
 - **Install primary libraries**: ```pip install -r requirements.txt```
 
@@ -17,10 +17,9 @@ Google Drive: https://drive.google.com/drive/folders/1uRgeFbavkb3-EC2bPfs2t5oqr-
     .
     ├── docs/                    # Documentation files
     ├── model/                   # Training Model (for development)
-    ├── database/                # Input videos to train (for development)
-    ├── frontend/                # Application's interface - Website (for production)
-    ├── mobile/                  # Application's interface - Mobile App (for production)
-    ├── backend/                 # AI Model -> API (for production)
+    ├── database/                # Input to train (for development)
+    ├── frontend/                # Application's interface - Website (client)
+    ├── backend/                 # AI Model -> API (server)
     ├── docker/                  # Build and deploy app (for production)
     ├── requirements.txt
     ├── LICENSE

@@ -2,9 +2,11 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
 from PIL import Image
+from rembg import remove
 import io
 import tensorflow as tf
 import os
+import requests
 from ..utils.config import INITIAL_MODEL_PATH, GLOBAL_MODEL_TEMPLATE, MODEL_DIR, API_CONFIG
 from ..federated_learning.model import create_model
 
@@ -63,17 +65,22 @@ def preprocess_image(image_data):
         # Chuyển đổi bytes thành ảnh
         image = Image.open(io.BytesIO(image_data))
         
-        # Chuyển sang grayscale nếu cần
-        if image.mode != 'L':
-            image = image.convert('L')
-            
+        # Chuyển sang RGBA nếu cần
+        if image.mode != 'RGBA':
+            image = image.convert('RGBA')
+        
+        # Xoá nền bằng thư viện rembg
+        image_no_bg = remove(image)  # Xoá nền
+        
+        # Chuyển đổi ảnh đã xoá nền sang grayscale
+        image_no_bg = image_no_bg.convert('L')
+        
         # Resize về kích thước 28x28
-        if image.size != (28, 28):
-            image = image.resize((28, 28))
-            
+        if image_no_bg.size != (28, 28):
+            image_no_bg = image_no_bg.resize((28, 28))
+        
         # Chuyển thành numpy array và normalize
-        image_array = np.array(image).astype('float32')
-        image_array = image_array.reshape(1, 28, 28, 1) / 255.0
+        image_array = np.array(image_no_bg).astype('float32').reshape(1, 28, 28, 1) / 255.0
         
         return image_array
     except Exception as e:
@@ -86,10 +93,19 @@ model = load_or_create_model()
 @app.route('/recognize', methods=['POST'])
 def recognize():
     try:
-        # Nhận và xử lý ảnh
-        image_data = request.data
-        if not image_data:
-            return jsonify({'error': 'No image data received'}), 400
+        # Kiểm tra xem có dữ liệu URL không
+        if request.is_json:
+            data = request.get_json()
+            image_url = data.get('url')
+            if image_url:
+                image_data = requests.get(image_url).content
+            else:
+                return jsonify({'error': 'No image URL provided'}), 400
+        else:
+            # Nhận và xử lý ảnh từ request.data
+            image_data = request.data
+            if not image_data:
+                return jsonify({'error': 'No image data received'}), 400
             
         image_array = preprocess_image(image_data)
         
