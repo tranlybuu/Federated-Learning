@@ -1,169 +1,185 @@
 import flwr as fl
 import tensorflow as tf
-from .model import create_model
+from .model import create_model, load_model_for_mode, save_model
 from ..utils.config import (
-    FL_CONFIG, INITIAL_MODEL_PATH, 
-    GLOBAL_MODEL_TEMPLATE, MODEL_DIR
+    FL_CONFIG, MODEL_DIR, TRAINING_CONFIG,
+    INITIAL_MODEL_PATH, MODEL_TEMPLATES
 )
 import os
-import numpy as np
 import json
+import numpy as np
 
 class FederatedServer(fl.server.strategy.FedAvg):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, mode='initial', *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Khởi tạo model ban đầu
-        self.model = create_model()
-        self.model.compile(
-            optimizer='adam',
-            loss='sparse_categorical_crossentropy',
-            metrics=['accuracy']
-        )
-        # Lưu model ban đầu
-        os.makedirs(os.path.dirname(INITIAL_MODEL_PATH), exist_ok=True)
-        self.model.save(INITIAL_MODEL_PATH)
+        self.mode = mode
         self.round_results = []
         self.current_round = 0
         self.best_accuracy = 0.0
+        
+        # Khởi tạo hoặc load model dựa trên mode
+        if mode == 'initial':
+            self.model = create_model()
+            self.model.compile(
+                optimizer='adam',
+                loss='sparse_categorical_crossentropy',
+                metrics=['accuracy']
+            )
+            # Lưu model ban đầu
+            os.makedirs(os.path.dirname(MODEL_TEMPLATES['initial']), exist_ok=True)
+            self.model.save(MODEL_TEMPLATES['initial'])
+        else:
+            if not os.path.exists(MODEL_TEMPLATES['initial']):
+                raise ValueError("Initial model not found. Please run initial training first.")
+            self.model = tf.keras.models.load_model(MODEL_TEMPLATES['initial'])
+        
+        print(f"\nInitializing server in {mode} mode")
 
     def aggregate_fit(self, server_round, results, failures):
-        """Tổng hợp trọng số từ các clients."""
+        """Tổng hợp kết quả training từ clients."""
         self.current_round = server_round
-        print(f"\nRound {server_round}/{self.num_rounds}:")
-        print(f"Active clients: {len(results)}/{FL_CONFIG['min_available_clients']}")
+        print(f"\nRound {server_round} ({self.mode} mode):")
+        print(f"Active clients: {len(results)}")
         print(f"Failures: {len(failures)}")
         
         if not results:
-            print("No results received from clients")
             return None, {}
 
-        # Thu thập trọng số từ các clients
+        # Collect training results
         weights = []
         num_examples = []
+        metrics = []
         
         for client_proxy, fit_res in results:
             client_weights = fl.common.parameters_to_ndarrays(fit_res.parameters)
             weights.append(client_weights)
             num_examples.append(fit_res.num_examples)
+            metrics.append(fit_res.metrics)
+            print(f"Client metrics: {fit_res.metrics}")
 
         total_examples = sum(num_examples)
         if total_examples == 0:
             return None, {}
 
-        # Tính trọng số trung bình có trọng số
+        # Aggregate weights using weighted average
         weighted_weights = [
-            np.sum([w[i] * n for w, n in zip(weights, num_examples)], axis=0) / total_examples
+            np.sum([
+                w[i] * n for w, n in zip(weights, num_examples)
+            ], axis=0) / total_examples
             for i in range(len(weights[0]))
         ]
 
-        # Cập nhật model và đánh giá
+        # Update model and evaluate
         self.model.set_weights(weighted_weights)
         test_loss, test_accuracy = self._evaluate_global_model()
         print(f"Round {server_round} results - Loss: {test_loss}, Accuracy: {test_accuracy}")
-        
-        # Lưu kết quả và model
-        self.round_results.append({
+
+        # Save results
+        round_metrics = {
             'round': server_round,
-            'loss': test_loss,
-            'accuracy': test_accuracy
-        })
-        
-        # Cập nhật và lưu best model nếu accuracy tốt hơn
+            'mode': self.mode,
+            'loss': float(test_loss),
+            'accuracy': float(test_accuracy),
+            'num_clients': len(results),
+            'client_metrics': metrics
+        }
+        self.round_results.append(round_metrics)
+
+        # Save best model if accuracy improved
         if test_accuracy > self.best_accuracy:
             self.best_accuracy = test_accuracy
-            self.model.save(os.path.join(MODEL_DIR, 'best_model.keras'))
-        
-        # Lưu model của round hiện tại
-        save_path = GLOBAL_MODEL_TEMPLATE.format(server_round)
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        self.model.save(save_path)
+            best_model_path = MODEL_TEMPLATES['best'].format(self.mode)
+            self.model.save(best_model_path)
+            print(f"Saved best model with accuracy {test_accuracy:.4f}")
 
-        # Nếu là round cuối cùng, lưu final model và training history
+        # Save current round model
+        current_model_path = MODEL_TEMPLATES['global'].format(server_round)
+        self.model.save(current_model_path)
+
+        # Save final results if this is the last round
         if server_round == self.num_rounds:
             self._save_final_results()
-        
-        metrics = {
+
+        # Convert weights back to Parameters
+        return fl.common.ndarrays_to_parameters(weighted_weights), {
             "loss": float(test_loss),
             "accuracy": float(test_accuracy)
         }
-        return fl.common.ndarrays_to_parameters(weighted_weights), metrics
+
+    def _evaluate_global_model(self):
+        """Evaluate model on test data."""
+        _, (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+        x_test = x_test.reshape(-1, 28, 28, 1) / 255.0
+        return self.model.evaluate(x_test, y_test, verbose=0)
 
     def _save_final_results(self):
-        """Lưu final model và kết quả training."""
-        # Lưu final model
-        final_model_path = os.path.join(MODEL_DIR, 'final_model.keras')
-        self.model.save(final_model_path)
-        print(f"Final model saved to: {final_model_path}")
+        """Save final results and training history."""
+        # Create results directory if it doesn't exist
+        results_dir = os.path.join(MODEL_DIR, 'results')
+        os.makedirs(results_dir, exist_ok=True)
 
-        # Lưu training history
-        history_path = os.path.join(MODEL_DIR, 'training_history.json')
-        with open(history_path, 'w') as f:
-            json.dump({
-                'round_results': self.round_results,
-                'best_accuracy': float(self.best_accuracy),
-                'total_rounds': self.current_round,
-                'final_accuracy': float(self.round_results[-1]['accuracy']) if self.round_results else 0.0,
-                'final_loss': float(self.round_results[-1]['loss']) if self.round_results else 0.0,
-            }, f, indent=4)
-        print(f"Training history saved to: {history_path}")
-
-        # Tạo summary report
-        print("\nTraining Summary:")
+        # Save detailed results
+        results_path = os.path.join(results_dir, f'{self.mode}_training_results.json')
+        final_results = {
+            'mode': self.mode,
+            'round_results': self.round_results,
+            'best_accuracy': float(self.best_accuracy),
+            'total_rounds': self.current_round,
+            'final_accuracy': float(self.round_results[-1]['accuracy']),
+            'final_loss': float(self.round_results[-1]['loss']),
+            'data_ranges': TRAINING_CONFIG['data_ranges'][self.mode]
+        }
+        
+        with open(results_path, 'w') as f:
+            json.dump(final_results, f, indent=4)
+            
+        print(f"\nTraining Summary ({self.mode} mode):")
         print("=" * 50)
         print(f"Total Rounds: {self.current_round}")
         print(f"Best Accuracy: {self.best_accuracy:.4f}")
         print(f"Final Accuracy: {self.round_results[-1]['accuracy']:.4f}")
         print(f"Final Loss: {self.round_results[-1]['loss']:.4f}")
+        print(f"Results saved to: {results_path}")
         print("=" * 50)
 
-    def aggregate_evaluate(self, server_round, results, failures):
-        """Tổng hợp kết quả đánh giá từ clients."""
-        if not results:
-            return None, {}
+    def get_model_parameters(self):
+        """Get current model parameters."""
+        return self.model.get_weights()
 
-        accuracies = []
-        losses = []
-        examples = []
+def start_server(mode, num_rounds=None, min_fit_clients=None, min_evaluate_clients=None):
+    """Start Flower server with specified configuration."""
+    # Set default values if not provided
+    if num_rounds is None:
+        num_rounds = FL_CONFIG['num_rounds'].get(mode, 3)
+    
+    if min_fit_clients is None:
+        min_fit_clients = FL_CONFIG['min_fit_clients'].get(mode, 2)
+    
+    if min_evaluate_clients is None:
+        min_evaluate_clients = FL_CONFIG['min_evaluate_clients'].get(mode, 2)
 
-        for _, eval_res in results:
-            accuracies.append(eval_res.metrics.get("accuracy", 0) * eval_res.num_examples)
-            losses.append(eval_res.loss * eval_res.num_examples)
-            examples.append(eval_res.num_examples)
-
-        if not examples:
-            return None, {}
-
-        avg_accuracy = sum(accuracies) / sum(examples)
-        avg_loss = sum(losses) / sum(examples)
-
-        metrics = {
-            "accuracy": float(avg_accuracy),
-            "loss": float(avg_loss)
-        }
-
-        return avg_loss, metrics
-
-    def _evaluate_global_model(self):
-        """Đánh giá model toàn cục trên tập test."""
-        _, (x_test, y_test) = tf.keras.datasets.mnist.load_data()
-        x_test = x_test.reshape(-1, 28, 28, 1) / 255.0
-        return self.model.evaluate(x_test, y_test, verbose=0)
-
-def start_server(num_rounds, min_fit_clients, min_evaluate_clients):
-    print("\nInitializing Federated Learning Server:")
+    # Print server configuration
+    print("\nServer Configuration:")
+    print("=" * 50)
+    print(f"Mode: {mode}")
     print(f"Number of rounds: {num_rounds}")
-    print(f"Minimum clients required: {min_fit_clients}")
-    print("Waiting for clients to connect...")
+    print(f"Minimum fit clients: {min_fit_clients}")
+    print(f"Minimum evaluate clients: {min_evaluate_clients}")
+    print(f"Data ranges: {TRAINING_CONFIG['data_ranges'][mode]}")
+    print("=" * 50)
 
+    # Initialize strategy
     strategy = FederatedServer(
+        mode=mode,
         fraction_fit=FL_CONFIG['fraction_fit'],
         fraction_evaluate=FL_CONFIG['fraction_evaluate'],
         min_fit_clients=min_fit_clients,
         min_evaluate_clients=min_evaluate_clients,
-        min_available_clients=FL_CONFIG['min_available_clients'],
+        min_available_clients=FL_CONFIG['min_available_clients'].get(mode, min_fit_clients)
     )
     strategy.num_rounds = num_rounds
 
+    # Start server
     fl.server.start_server(
         server_address="127.0.0.1:8080",
         config=fl.server.ServerConfig(num_rounds=num_rounds),

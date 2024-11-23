@@ -5,6 +5,7 @@ from utils.config import DATA_CONFIG, RANDOM_SEED
 np.random.seed(RANDOM_SEED)
 
 def load_and_preprocess_mnist():
+    """Load và tiền xử lý dữ liệu MNIST."""
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
     
     # Normalize pixel values
