@@ -76,44 +76,192 @@ Toàn bộ cấu hình được tập trung trong `utils/config.py`:
 
 ## Sử dụng
 
-### 1. Initial Training Phase
+### 1. Initial Training Phase (Giai đoạn Training Ban đầu)
 
-Chạy server:
+Mục đích:
+- Xây dựng model cơ sở với dữ liệu từ các chữ số 0-4
+- Sử dụng 2 clients để đảm bảo tính phân tán của dữ liệu
+- Tạo nền tảng cho giai đoạn training tiếp theo
+
+Phân chia dữ liệu:
+- Client 1: Dữ liệu của các chữ số 0, 1, 2
+- Client 2: Dữ liệu của các chữ số 3, 4
+
+Cách thực hiện:
+
+1. Khởi động server:
 ```bash
 python -m backend.main --mode initial --server
 ```
 
-Chạy clients (trong các terminal khác):
+2. Trong terminal mới, khởi động Client 1:
 ```bash
 python -m backend.federated_learning.flwr_client --mode initial --cid 0
+```
+
+3. Trong terminal khác, khởi động Client 2:
+```bash
 python -m backend.federated_learning.flwr_client --mode initial --cid 1
 ```
 
-### 2. Additional Training Phase
+Kết quả:
+- Model ban đầu được lưu tại `models/initial_model.keras`
+- Các model trung gian được lưu theo rounds
+- Kết quả training được lưu trong `models/results/initial_training_results.json`
 
-Chạy server:
+### 2. Additional Training Phase (Giai đoạn Training Bổ Sung)
+
+Mục đích:
+- Mở rộng khả năng nhận dạng cho các chữ số 5-9
+- Cải thiện model ban đầu với dữ liệu mới
+- Tận dụng kiến thức đã học từ giai đoạn initial
+- Thử nghiệm với số lượng clients lớn hơn (3 clients)
+
+Phân chia dữ liệu:
+- Client 1: Dữ liệu của các chữ số 5, 6
+- Client 2: Dữ liệu của các chữ số 7, 8
+- Client 3: Dữ liệu của các chữ số 5, 9
+
+Yêu cầu tiên quyết:
+- Đã hoàn thành Initial Training Phase
+- File `models/initial_model.keras` tồn tại
+
+Cách thực hiện:
+
+1. Khởi động server:
 ```bash
 python -m backend.main --mode additional --server
 ```
 
-Chạy clients:
+2. Khởi động ba clients trong các terminal riêng biệt:
 ```bash
 python -m backend.federated_learning.flwr_client --mode additional --cid 0
 python -m backend.federated_learning.flwr_client --mode additional --cid 1
 python -m backend.federated_learning.flwr_client --mode additional --cid 2
 ```
 
-### 3. API Server
+Kết quả:
+- Model cải tiến được lưu theo rounds
+- Model tốt nhất được lưu tại `models/best_additional_model.keras`
+- Kết quả training được lưu trong `models/results/additional_training_results.json`
 
+### 3. API Server (Server Phục vụ Dự đoán)
+
+Mục đích:
+- Cung cấp endpoint cho việc nhận dạng chữ số
+- Sử dụng model tốt nhất để dự đoán
+- Cung cấp các API để kiểm tra trạng thái và thông tin model
+
+Features:
+- Tự động xóa background của ảnh input
+- Hỗ trợ cả upload ảnh trực tiếp và URL
+- Trả về kết quả dự đoán kèm độ tin cậy
+- API endpoints cho health check và thông tin model
+
+Khởi động server:
 ```bash
 python -m backend.main --mode api
 ```
 
-### 4. Test Client
+Sử dụng API:
 
+1. Upload ảnh trực tiếp:
+```bash
+curl -X POST -F "image=@digit.png" http://localhost:5000/recognize
+```
+
+2. Sử dụng URL ảnh:
+```bash
+curl -X POST -H "Content-Type: application/json" \
+     -d '{"url":"http://example.com/digit.png"}' \
+     http://localhost:5000/recognize
+```
+
+3. Kiểm tra trạng thái:
+```bash
+curl http://localhost:5000/health
+```
+
+### 4. Test Client (Client Kiểm thử)
+
+Mục đích:
+- Đánh giá và so sánh hiệu suất của các model
+- So sánh kết quả giữa model ban đầu và model sau training
+- Cung cấp metrics chi tiết về sự cải thiện
+- Kiểm tra độ chính xác trên dữ liệu mới
+
+Features:
+- So sánh trực tiếp giữa các phiên bản model
+- Tính toán mức độ cải thiện
+- Xuất báo cáo chi tiết về hiệu suất
+- Hỗ trợ test với dữ liệu tùy chỉnh
+
+Sử dụng:
+
+1. Chạy test client:
 ```bash
 python -m backend.main --mode test-only
 ```
+
+2. So sánh các model:
+```python
+from backend.federated_learning.flwr_client import TestOnlyClient
+
+test_client = TestOnlyClient()
+results = test_client.evaluate_models()
+print(results)
+```
+
+3. Test với dữ liệu cụ thể:
+```python
+comparison = test_client.compare_predictions(custom_data)
+print(comparison)
+```
+
+Kết quả:
+- So sánh accuracy giữa các model
+- Thống kê về sự cải thiện
+- Matrix nhầm lẫn (confusion matrix)
+- Báo cáo chi tiết về hiệu suất
+
+### Quy trình Hoạt động Khuyến nghị:
+
+1. Initial Training:
+   - Chạy initial training đầy đủ
+   - Kiểm tra kết quả trong thư mục results
+   - Đảm bảo accuracy đạt mức chấp nhận được (>85%)
+
+2. Additional Training:
+   - Chạy additional training với model ban đầu tốt
+   - Theo dõi sự cải thiện qua các rounds
+   - Lưu ý sự thay đổi trong accuracy
+
+3. Kiểm thử:
+   - Sử dụng test client để đánh giá toàn diện
+   - So sánh hiệu suất các model
+   - Xác định những cải tiến cần thiết
+
+4. Triển khai:
+   - Khởi động API server với model tốt nhất
+   - Kiểm tra hiệu suất trong thực tế
+   - Theo dõi và ghi log hoạt động
+
+### Notes và Best Practices:
+
+1. Training:
+   - Luôn backup model trước khi chạy additional training
+   - Theo dõi logs để phát hiện vấn đề sớm
+   - Điều chỉnh hyperparameters nếu cần
+
+2. Đánh giá:
+   - Sử dụng test client thường xuyên
+   - So sánh kết quả giữa các lần training
+   - Lưu documentation về các thay đổi
+
+3. API Usage:
+   - Monitor API performance
+   - Implement rate limiting nếu cần
+   - Backup model regularl
 
 ## Tùy chỉnh Training
 
