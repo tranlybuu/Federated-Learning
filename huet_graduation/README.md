@@ -167,17 +167,27 @@ Sử dụng API:
 
 1. Upload ảnh trực tiếp:
 ```bash
-curl -X POST -F "image=@digit.png" http://localhost:5000/recognize
+curl.exe -X POST -F "image=@digit.png" http://localhost:5000/recognize
 ```
 
 2. Sử dụng URL ảnh:
 ```bash
-curl.exe -X POST -H "Content-Type: multipart/form-data" --data-binary "@backend/mnist_samples/sample_8_label_1.png" http://localhost:5000/recognize
+# 1. Xem danh sách các models có sẵn:
+curl.exe http://localhost:5000/models
+
+# 2. Predict với model cụ thể:
+curl.exe -X POST -H "Content-Type: multipart/form-data" --data-binary "@backend/mnist_samples/sample_8_label_1.png" "http://localhost:5000/recognize?model=initial_model.keras"
+
+# 3. Predict với model khác:
+curl.exe -X POST -H "Content-Type: multipart/form-data" --data-binary "@backend/mnist_samples/sample_8_label_1.png" "http://localhost:5000/recognize?model=global_model_round_3.keras"
+
+# 4. Kiểm tra health và xem danh sách models:
+curl.exe http://localhost:5000/health
 ```
 
 3. Kiểm tra trạng thái:
 ```bash
-curl http://localhost:5000/health
+curl.exe http://localhost:5000/health
 ```
 
 ### 4. Test Client (Client Kiểm thử)

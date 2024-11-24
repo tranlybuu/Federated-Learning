@@ -4,6 +4,7 @@ import numpy as np
 from PIL import Image
 from rembg import remove
 import io
+from datetime import datetime
 import tensorflow as tf
 import os
 import requests
@@ -15,6 +16,26 @@ from ..federated_learning.model import create_model
 
 app = Flask(__name__)
 CORS(app)
+
+def get_available_models():
+    """Lấy danh sách tất cả các model có sẵn."""
+    models = []
+    for file in os.listdir(MODEL_DIR):
+        if file.endswith('.keras'):
+            path = os.path.join(MODEL_DIR, file)
+            models.append({
+                'name': file,
+                'path': path,
+                'last_modified': datetime.fromtimestamp(os.path.getmtime(path)).strftime('%Y-%m-%d %H:%M:%S')
+            })
+    return sorted(models, key=lambda x: x['last_modified'], reverse=True)
+
+def load_model_by_name(model_name):
+    """Load model theo tên."""
+    model_path = os.path.join(MODEL_DIR, model_name)
+    if not os.path.exists(model_path):
+        raise ValueError(f"Model {model_name} không tồn tại")
+    return tf.keras.models.load_model(model_path)
 
 def get_latest_model_path():
     """Lấy model mới nhất từ các rounds training."""
@@ -96,6 +117,18 @@ model = load_or_create_model()
 @app.route('/recognize', methods=['POST'])
 def recognize():
     try:
+        # Kiểm tra và lấy model được chỉ định
+        model_name = request.args.get('model')
+        if model_name:
+            try:
+                model = load_model_by_name(model_name)
+                print(f"Using specified model: {model_name}")
+            except ValueError as e:
+                return jsonify({'error': str(e)}), 400
+        else:
+            model_name = os.path.basename(get_latest_model_path())
+            print(f"Using latest model: {model_name}")
+
         # Kiểm tra xem có dữ liệu URL không
         if request.is_json:
             data = request.get_json()
@@ -105,22 +138,31 @@ def recognize():
             else:
                 return jsonify({'error': 'No image URL provided'}), 400
         else:
-            # Nhận và xử lý ảnh từ request.data
             image_data = request.data
             if not image_data:
                 return jsonify({'error': 'No image data received'}), 400
             
+        # Xử lý ảnh và dự đoán
         image_array = preprocess_image(image_data)
-        
-        # Dự đoán
         prediction = model.predict(image_array)
         digit = np.argmax(prediction[0])
         confidence = float(prediction[0][digit])
         
+        # Chuẩn bị thông tin response
+        model_info = {
+            'name': model_name,
+            'path': os.path.join(MODEL_DIR, model_name),
+            'last_modified': datetime.fromtimestamp(
+                os.path.getmtime(os.path.join(MODEL_DIR, model_name))
+            ).strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
         return jsonify({
             'digit': int(digit),
             'confidence': confidence,
-            'success': True
+            'success': True,
+            'model_info': model_info,
+            'prediction_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         })
         
     except Exception as e:
@@ -129,17 +171,23 @@ def recognize():
             'error': str(e),
             'success': False
         }), 500
-
+    
 @app.route('/health', methods=['GET'])
 def health_check():
     """Endpoint kiểm tra trạng thái server."""
-    model_path = get_latest_model_path()
-    return jsonify({
-        'status': 'healthy',
-        'model_loaded': model is not None,
-        'model_path': model_path,
-        'model_exists': os.path.exists(model_path)
-    })
+    try:
+        models = get_available_models()
+        return jsonify({
+            'status': 'healthy',
+            'available_models': models,
+            'total_models': len(models),
+            'server_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(

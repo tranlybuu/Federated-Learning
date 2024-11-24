@@ -11,7 +11,7 @@ os.makedirs(MODEL_DIR, exist_ok=True)
 INITIAL_MODEL_PATH = os.path.join(MODEL_DIR, 'initial_model.keras')
 ADDITIONAL_MODEL_TEMPLATE = os.path.join(MODEL_DIR, 'additional_model_round_{}.keras')
 CLIENT_MODEL_TEMPLATE = os.path.join(MODEL_DIR, 'client_{}_model.keras')
-BEST_MODEL_PATH = os.path.join(MODEL_DIR, 'best_model.keras')
+BEST_MODEL_PATH = os.path.join(MODEL_DIR, 'best_model.keras')   
 FINAL_MODEL_PATH = os.path.join(MODEL_DIR, 'final_model.keras')
 
 # Templates cho tên file models
