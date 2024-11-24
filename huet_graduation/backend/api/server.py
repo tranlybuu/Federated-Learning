@@ -19,6 +19,12 @@ CORS(app)
 def get_latest_model_path():
     """Lấy model mới nhất từ các rounds training."""
     try:
+        if 'best_additional_model.keras' in os.listdir(MODEL_DIR):
+            return os.path.join(MODEL_DIR, 'best_additional_model.keras')
+        
+        if 'best_initial_model.keras' in os.listdir(MODEL_DIR):
+            return os.path.join(MODEL_DIR, 'best_initial_model.keras')
+        
         # Tìm tất cả các file model trong thư mục
         model_files = [f for f in os.listdir(MODEL_DIR) if f.startswith('global_model_round_')]
         if not model_files:
@@ -28,10 +34,11 @@ def get_latest_model_path():
         round_numbers = [int(f.split('_')[-1].replace('.keras', '')) for f in model_files]
         latest_round = max(round_numbers)
         
-        return MODEL_TEMPLATES['global'].format(latest_round)
+        return os.path.join(MODEL_DIR, MODEL_TEMPLATES['global'].format(latest_round))
     except Exception as e:
         print(f"Error finding latest model: {e}")
         return INITIAL_MODEL_PATH
+
 
 def load_or_create_model():
     """Load model đã train hoặc tạo model mới nếu chưa có."""
