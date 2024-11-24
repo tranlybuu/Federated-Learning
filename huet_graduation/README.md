@@ -172,9 +172,7 @@ curl -X POST -F "image=@digit.png" http://localhost:5000/recognize
 
 2. Sử dụng URL ảnh:
 ```bash
-curl -X POST -H "Content-Type: application/json" \
-     -d '{"url":"http://example.com/digit.png"}' \
-     http://localhost:5000/recognize
+curl.exe -X POST -H "Content-Type: multipart/form-data" --data-binary "@backend/mnist_samples/sample_8_label_1.png" http://localhost:5000/recognize
 ```
 
 3. Kiểm tra trạng thái:
