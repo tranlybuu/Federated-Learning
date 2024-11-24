@@ -7,7 +7,10 @@ import io
 import tensorflow as tf
 import os
 import requests
-from ..utils.config import INITIAL_MODEL_PATH, GLOBAL_MODEL_TEMPLATE, MODEL_DIR, API_CONFIG
+from ..utils.config import (
+    INITIAL_MODEL_PATH, MODEL_DIR,
+    API_CONFIG, MODEL_TEMPLATES
+)
 from ..federated_learning.model import create_model
 
 app = Flask(__name__)
@@ -25,7 +28,7 @@ def get_latest_model_path():
         round_numbers = [int(f.split('_')[-1].replace('.keras', '')) for f in model_files]
         latest_round = max(round_numbers)
         
-        return GLOBAL_MODEL_TEMPLATE.format(latest_round)
+        return MODEL_TEMPLATES['global'].format(latest_round)
     except Exception as e:
         print(f"Error finding latest model: {e}")
         return INITIAL_MODEL_PATH
@@ -46,7 +49,7 @@ def load_or_create_model():
                 metrics=['accuracy']
             )
             # Lưu model mới
-            model.save(INITIAL_MODEL_PATH, save_format='keras')
+            model.save(INITIAL_MODEL_PATH)
             return model
     except Exception as e:
         print(f"Error loading/creating model: {e}")
@@ -130,10 +133,12 @@ def recognize():
 @app.route('/health', methods=['GET'])
 def health_check():
     """Endpoint kiểm tra trạng thái server."""
+    model_path = get_latest_model_path()
     return jsonify({
         'status': 'healthy',
         'model_loaded': model is not None,
-        'model_path': get_latest_model_path()
+        'model_path': model_path,
+        'model_exists': os.path.exists(model_path)
     })
 
 if __name__ == '__main__':

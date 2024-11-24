@@ -6,24 +6,50 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
 import argparse
+import flwr as fl
+from .utils.config import (
+    FL_CONFIG, API_CONFIG, TRAINING_CONFIG,
+    MODEL_DIR, INITIAL_MODEL_PATH
+)
 from .federated_learning.flwr_server import start_server
+from .federated_learning.flwr_client import start_client
 from .api.server import app
-from .utils.config import FL_CONFIG, API_CONFIG, DATA_CONFIG
+import os
+import json
 
 def create_parser():
-    """Tạo parser với các mô tả chi tiết cho từng argument."""
+    """Create argument parser with detailed help messages."""
     parser = argparse.ArgumentParser(
         description="""
 Federated Learning System for Handwriting Recognition
 
-This program can run in two modes:
-1. Federated Learning Server (--mode fl_server)
-2. API Server for inference (--mode api)
+This program supports multiple modes:
+
+1. Initial Training (--mode initial):
+   - First phase of training with 2 clients
+   - Uses data ranges 0-4
+   - Creates initial model
+
+2. Additional Training (--mode additional):
+   - Second phase with 3 clients
+   - Uses data ranges 5-9
+   - Requires initial model from first phase
+
+3. Test Only (--mode test-only):
+   - For inference and model comparison
+   - Requires at least one trained model
+
+4. API Server (--mode api):
+   - Serves trained models via REST API
+   - Uses the best available model
 
 Example usage:
-  Start FL server: python main.py --mode fl_server --min_clients 4 --num_rounds 8
-  Start API server: python main.py --mode api
-  Start client: python federated_learning/flwr_client.py --cid 0
+  Start initial training server:     python main.py --mode initial --server
+  Start additional training server:  python main.py --mode additional --server
+  Start client:                     python main.py --mode initial --client --cid 0
+  Start API server:                 python main.py --mode api
+
+Note: For client mode, --cid is required.
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -31,116 +57,136 @@ Example usage:
     # Required arguments
     parser.add_argument(
         "--mode",
-        choices=["fl_server", "api"],
+        choices=['initial', 'additional', 'test-only', 'api'],
         required=True,
-        help="Operation mode: 'fl_server' for Federated Learning server or 'api' for API server"
+        help="Operation mode"
     )
 
-    # Optional arguments with defaults from config
+    # Server/Client selection
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--server",
+        action="store_true",
+        help="Run as server"
+    )
+    group.add_argument(
+        "--client",
+        action="store_true",
+        help="Run as client"
+    )
+
+    # Client specific arguments
+    parser.add_argument(
+        "--cid",
+        type=int,
+        help="Client ID (required for client mode)"
+    )
+
+    # Optional configuration
     parser.add_argument(
         "--num_rounds",
         type=int,
-        default=FL_CONFIG['num_rounds'],
-        help=f"Number of training rounds (default: {FL_CONFIG['num_rounds']})"
-    )
-
-    parser.add_argument(
-        "--min_clients",
-        type=int,
-        default=FL_CONFIG['min_fit_clients'],
-        help=f"Minimum number of clients required for training (default: {FL_CONFIG['min_fit_clients']})"
-    )
-
-    # Advanced configuration options
-    parser.add_argument(
-        "--fraction_fit",
-        type=float,
-        default=FL_CONFIG['fraction_fit'],
-        help=f"Fraction of clients used for training (default: {FL_CONFIG['fraction_fit']})"
-    )
-
-    parser.add_argument(
-        "--fraction_evaluate",
-        type=float,
-        default=FL_CONFIG['fraction_evaluate'],
-        help=f"Fraction of clients used for evaluation (default: {FL_CONFIG['fraction_evaluate']})"
+        help="Number of training rounds"
     )
 
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=DATA_CONFIG['batch_size'],
-        help=f"Batch size for training (default: {DATA_CONFIG['batch_size']})"
-    )
-
-    parser.add_argument(
-        "--local_epochs",
-        type=int,
-        default=DATA_CONFIG['local_epochs'],
-        help=f"Number of local training epochs (default: {DATA_CONFIG['local_epochs']})"
-    )
-
-    # Server configuration
-    server_group = parser.add_argument_group('Server Configuration')
-    server_group.add_argument(
-        "--host",
-        default=API_CONFIG['host'],
-        help=f"Host address for API server (default: {API_CONFIG['host']})"
-    )
-    server_group.add_argument(
-        "--port",
-        type=int,
-        default=API_CONFIG['port'],
-        help=f"Port for API server (default: {API_CONFIG['port']})"
+        default=FL_CONFIG.get('batch_size', 32),
+        help="Batch size for training"
     )
 
     return parser
 
+def validate_args(args):
+    """Validate command line arguments."""
+    if args.mode == 'api':
+        if args.server or args.client:
+            raise ValueError("API mode doesn't require --server or --client flag")
+        return
+
+    if not (args.server or args.client):
+        raise ValueError("Must specify either --server or --client")
+
+    if args.client and args.cid is None:
+        raise ValueError("Client mode requires --cid")
+
+    if args.mode == 'additional':
+        if not os.path.exists(INITIAL_MODEL_PATH):
+            raise ValueError("Initial model not found. Please run initial training first.")
+
 def print_configuration(args):
-    """In ra cấu hình hiện tại."""
+    """Print current configuration."""
     print("\nCurrent Configuration:")
     print("=" * 50)
     print(f"Mode: {args.mode}")
-    if args.mode == "fl_server":
-        print(f"Number of rounds: {args.num_rounds}")
-        print(f"Minimum clients: {args.min_clients}")
-        print(f"Fraction fit: {args.fraction_fit}")
-        print(f"Fraction evaluate: {args.fraction_evaluate}")
+    print(f"Running as: {'Server' if args.server else 'Client' if args.client else 'API'}")
+    
+    if args.server:
+        print(f"Number of rounds: {args.num_rounds or FL_CONFIG['num_rounds'][args.mode]}")
+        print(f"Minimum clients: {FL_CONFIG['min_fit_clients'][args.mode]}")
+        print(f"Data ranges: {TRAINING_CONFIG['data_ranges'][args.mode]}")
+    elif args.client:
+        print(f"Client ID: {args.cid}")
         print(f"Batch size: {args.batch_size}")
-        print(f"Local epochs: {args.local_epochs}")
-    else:
-        print(f"API Host: {args.host}")
-        print(f"API Port: {args.port}")
+    else:  # API mode
+        print(f"Host: {API_CONFIG['host']}")
+        print(f"Port: {API_CONFIG['port']}")
+    
     print("=" * 50)
+
+def initialize_directories():
+    """Create necessary directories if they don't exist."""
+    directories = [
+        MODEL_DIR,
+        os.path.join(MODEL_DIR, 'results'),
+    ]
+    for directory in directories:
+        os.makedirs(directory, exist_ok=True)
 
 def main():
     parser = create_parser()
     args = parser.parse_args()
 
-    # Cập nhật config từ command line arguments
-    FL_CONFIG['num_rounds'] = args.num_rounds
-    FL_CONFIG['min_fit_clients'] = args.min_clients
-    FL_CONFIG['min_evaluate_clients'] = args.min_clients
-    FL_CONFIG['min_available_clients'] = args.min_clients
-    FL_CONFIG['fraction_fit'] = args.fraction_fit
-    FL_CONFIG['fraction_evaluate'] = args.fraction_evaluate
-    
-    DATA_CONFIG['num_clients'] = args.min_clients
-    DATA_CONFIG['batch_size'] = args.batch_size
-    DATA_CONFIG['local_epochs'] = args.local_epochs
+    try:
+        # Validate arguments
+        validate_args(args)
 
-    API_CONFIG['host'] = args.host
-    API_CONFIG['port'] = args.port
+        # Create necessary directories
+        initialize_directories()
 
-    # In cấu hình hiện tại
-    print_configuration(args)
+        # Print configuration
+        print_configuration(args)
 
-    if args.mode == "fl_server":
-        print("\nStarting Federated Learning Server...")
-        start_server(args.num_rounds, args.min_clients, args.min_clients)
-    elif args.mode == "api":
-        print("\nStarting API Server...")
-        app.run(host=args.host, port=args.port, debug=API_CONFIG['debug'])
+        # Execute based on mode and role
+        if args.mode == 'api':
+            app.run(
+                host=API_CONFIG['host'],
+                port=API_CONFIG['port'],
+                debug=API_CONFIG['debug']
+            )
+        elif args.server:
+            start_server(
+                mode=args.mode,
+                num_rounds=args.num_rounds,
+                min_fit_clients=FL_CONFIG['min_fit_clients'][args.mode],
+                min_evaluate_clients=FL_CONFIG['min_evaluate_clients'][args.mode]
+            )
+        else:  # client mode
+            start_client(args)
+
+    except Exception as e:
+        print(f"\nError: {e}")
+        print("\nTroubleshooting tips:")
+        if args.mode == 'additional':
+            print("1. Ensure initial training has been completed")
+            print("2. Check if initial model exists")
+        if args.client:
+            print("3. Make sure the server is running")
+            print("4. Verify that your Client ID is unique")
+            print("5. Check if you have enough memory for the specified batch size")
+        print("6. Verify that all directories have write permissions")
+        raise
 
 if __name__ == "__main__":
     main()
