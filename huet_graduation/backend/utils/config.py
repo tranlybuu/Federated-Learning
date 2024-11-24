@@ -16,10 +16,15 @@ FINAL_MODEL_PATH = os.path.join(MODEL_DIR, 'final_model.keras')
 
 # Templates cho tên file models
 MODEL_TEMPLATES = {
-    'client': os.path.join(MODEL_DIR, 'client_{}_model.keras'),
-    'global': os.path.join(MODEL_DIR, 'global_model_round_{}.keras'),
-    'additional': os.path.join(MODEL_DIR, 'additional_model_round_{}.keras'),
+    # Basic models
+    'initial': os.path.join(MODEL_DIR, 'initial_model.keras'),
+    'final': os.path.join(MODEL_DIR, 'final_model.keras'),
     'best': os.path.join(MODEL_DIR, 'best_{}_model.keras'),
+    
+    # Training phase models
+    'global': os.path.join(MODEL_DIR, 'global_model_round_{}.keras'),
+    'client': os.path.join(MODEL_DIR, 'client_{}_model.keras'),
+    'additional': os.path.join(MODEL_DIR, 'additional_model_round_{}.keras')
 }
 
 # Training mode và data ranges configuration

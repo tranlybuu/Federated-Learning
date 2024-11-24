@@ -1,42 +1,54 @@
 # Federated Learning for Handwriting Recognition
 
-Dự án này triển khai hệ thống Federated Learning để nhận dạng chữ số viết tay sử dụng tập dữ liệu MNIST. Hệ thống bao gồm một server trung tâm và nhiều clients, cho phép training mô hình một cách phân tán mà không cần chia sẻ dữ liệu trực tiếp.
+Dự án này triển khai hệ thống Federated Learning cho bài toán nhận dạng chữ số viết tay sử dụng tập dữ liệu MNIST. Hệ thống được thiết kế theo mô hình client-server với ba giai đoạn training riêng biệt và một API server cho inference.
 
 ## Tính năng chính
 
-- Federated Learning sử dụng framework Flower
-- Training phân tán với nhiều clients
-- API server cho inference
-- Model CNN cho nhận dạng chữ số viết tay
-- Giao diện command line với nhiều tùy chọn cấu hình
-- Lưu trữ và theo dõi tiến trình training
-- Hỗ trợ số lượng clients linh hoạt
+- **Federated Learning đa giai đoạn**:
+  - Giai đoạn Initial Training với 2 clients
+  - Giai đoạn Additional Training với 3 clients
+  - Test-only client cho đánh giá và so sánh
+
+- **Xử lý dữ liệu thông minh**:
+  - Phân chia dữ liệu theo ranges cho từng giai đoạn
+  - Tự động xử lý và chuẩn hóa dữ liệu
+  - Background removal cho ảnh input
+
+- **Model Management**:
+  - Lưu trữ và quản lý nhiều phiên bản model
+  - Theo dõi model tốt nhất của mỗi giai đoạn
+  - So sánh hiệu suất giữa các phiên bản
+
+- **API Service**:
+  - REST API cho inference
+  - Hỗ trợ cả image upload và URL
+  - Health check và monitoring
 
 ## Cấu trúc thư mục
 
-```
+```plaintext
 backend/
 │
-├── federated_learning/
+├── federated_learning/        # Core Federated Learning implementation
 │   ├── __init__.py
-│   ├── flwr_client.py      # Client implementation
-│   ├── flwr_server.py      # Server implementation
-│   └── model.py            # Neural network model
+│   ├── flwr_client.py        # Client implementation
+│   ├── flwr_server.py        # Server implementation
+│   └── model.py              # Model architecture
 │
-├── data/
+├── api/                      # API Server
 │   ├── __init__.py
-│   └── data_prep.py        # Data preprocessing
+│   └── server.py            # Flask API implementation
 │
-├── api/
+├── utils/                    # Utilities and Configuration
 │   ├── __init__.py
-│   └── server.py           # API server
+│   └── config.py            # Central configuration
 │
-├── utils/
-│   ├── __init__.py
-│   └── config.py           # Configuration
+├── models/                   # Model storage
+│   ├── initial_model.keras
+│   ├── global_model_round_*.keras
+│   └── best_model.keras
 │
-├── main.py                 # Entry point
-└── requirements.txt        # Dependencies
+└── main.py                  # Entry point
 ```
 
 ## Cài đặt
@@ -44,7 +56,7 @@ backend/
 1. Tạo và kích hoạt môi trường ảo:
 ```bash
 python -m venv venv
-source venv/bin/activate  # Trên Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 ```
 
 2. Cài đặt dependencies:
@@ -54,118 +66,116 @@ pip install -r requirements.txt
 
 ## Cấu hình
 
-Các cấu hình chính được định nghĩa trong `utils/config.py`:
+Toàn bộ cấu hình được tập trung trong `utils/config.py`:
 
-- `FL_CONFIG`: Cấu hình cho Federated Learning (số rounds, số clients tối thiểu, ...)
-- `DATA_CONFIG`: Cấu hình cho dữ liệu và training (batch size, epochs, ...)
-- `MODEL_CONFIG`: Cấu hình cho model
-- `API_CONFIG`: Cấu hình cho API server
+- `MODEL_TEMPLATES`: Đường dẫn và template cho các model
+- `TRAINING_CONFIG`: Cấu hình cho các giai đoạn training
+- `FL_CONFIG`: Cấu hình Federated Learning
+- `DATA_CONFIG`: Cấu hình dữ liệu và training
+- `API_CONFIG`: Cấu hình API server
 
 ## Sử dụng
 
-### 1. Federated Learning Server
+### 1. Initial Training Phase
 
-Chạy server với cấu hình mặc định:
+Chạy server:
 ```bash
-python -m backend.main --mode fl_server
+python -m backend.main --mode initial --server
 ```
 
-Tùy chọn cấu hình:
+Chạy clients (trong các terminal khác):
 ```bash
-python -m backend.main --mode fl_server --min_clients 4 --num_rounds 8
+python -m backend.federated_learning.flwr_client --mode initial --cid 0
+python -m backend.federated_learning.flwr_client --mode initial --cid 1
 ```
 
-Xem tất cả các tùy chọn:
+### 2. Additional Training Phase
+
+Chạy server:
 ```bash
-python -m backend.main --help
+python -m backend.main --mode additional --server
 ```
 
-Các flags cho server:
-- `--mode`: Chế độ chạy (fl_server hoặc api)
-- `--num_rounds`: Số rounds training
-- `--min_clients`: Số clients tối thiểu cần thiết
-- `--fraction_fit`: Tỷ lệ clients sử dụng cho training
-- `--fraction_evaluate`: Tỷ lệ clients sử dụng cho evaluation
-- `--batch_size`: Kích thước batch
-- `--local_epochs`: Số epochs training local
-
-### 2. Federated Learning Clients
-
-Chạy client với cấu hình mặc định:
+Chạy clients:
 ```bash
-python -m backend.federated_learning.flwr_client --cid 0
+python -m backend.federated_learning.flwr_client --mode additional --cid 0
+python -m backend.federated_learning.flwr_client --mode additional --cid 1
+python -m backend.federated_learning.flwr_client --mode additional --cid 2
 ```
-
-Tùy chọn cấu hình:
-```bash
-python -m backend.federated_learning.flwr_client --cid 0 --batch_size 64 --local_epochs 2
-```
-
-Xem tất cả các tùy chọn:
-```bash
-python -m backend.federated_learning.flwr_client --help
-```
-
-Các flags cho client:
-- `--cid`: ID của client (bắt buộc)
-- `--server_address`: Địa chỉ server
-- `--batch_size`: Kích thước batch
-- `--local_epochs`: Số epochs training local
-- `--validation_split`: Tỷ lệ dữ liệu validation
-- `--verbose`: Mức độ hiển thị thông tin (0, 1, 2)
 
 ### 3. API Server
 
-Chạy API server:
 ```bash
 python -m backend.main --mode api
 ```
 
-API Endpoints:
-- `/recognize`: POST endpoint cho nhận dạng chữ số
-- `/health`: GET endpoint kiểm tra trạng thái server
+### 4. Test Client
 
-## Quy trình sử dụng
-
-1. Khởi động server:
 ```bash
-python -m backend.main --mode fl_server --min_clients 3 --num_rounds 5
+python -m backend.main --mode test-only
 ```
 
-2. Khởi động các clients (trong các terminal khác nhau):
+## Tùy chỉnh Training
+
+Server với cấu hình tùy chỉnh:
 ```bash
-python -m backend.federated_learning.flwr_client --cid 0
-python -m backend.federated_learning.flwr_client --cid 1
-python -m backend.federated_learning.flwr_client --cid 2
+python -m backend.main --mode initial --server --num_rounds 5 --min_clients 3
 ```
 
-3. Sau khi training xong, chạy API server:
+Client với hyperparameters tùy chỉnh:
 ```bash
-python -m backend.main --mode api
+python -m backend.federated_learning.flwr_client \
+    --mode initial \
+    --cid 0 \
+    --batch_size 64 \
+    --local_epochs 2 \
+    --validation_split 0.2
 ```
 
-## Kết quả và Log
+## API Endpoints
 
-Sau khi training, hệ thống sẽ tạo:
-- Model files trong thư mục `models/`
-- Training history trong `models/training_history.json`
-- Log files trong terminal
+- `/recognize`: POST - Nhận dạng chữ số từ ảnh
+  - Hỗ trợ direct upload hoặc image URL
+  - Tự động xử lý và xóa background
+  - Trả về chữ số dự đoán và confidence score
+
+- `/health`: GET - Kiểm tra trạng thái server
+  - Trạng thái server
+  - Thông tin model đang sử dụng
+  - Metrics cơ bản
+
+## Monitoring và Logs
+
+- Training logs được lưu trong `models/results/`
+- Model checkpoints trong `models/`
+- API server logs trong standard output
+
+## Cấu trúc dữ liệu
+
+Initial Training:
+- Client 1: Data ranges 0-2
+- Client 2: Data ranges 3-4
+
+Additional Training:
+- Client 1: Data ranges 5-6
+- Client 2: Data ranges 7-8
+- Client 3: Data ranges 5,9
 
 ## Troubleshooting
 
-### Server không khởi động
-- Kiểm tra port 8080 có đang được sử dụng không
-- Đảm bảo đủ quyền để tạo thư mục models/
+1. Server không khởi động:
+   - Kiểm tra port 8080 có đang được sử dụng không
+   - Đảm bảo đủ quyền truy cập thư mục `models`
 
-### Client không kết nối được
-- Kiểm tra server đã chạy chưa
-- Xác nhận địa chỉ server chính xác
-- Đảm bảo Client ID là duy nhất
+2. Client không kết nối được:
+   - Kiểm tra server đã chạy chưa
+   - Xác nhận địa chỉ server chính xác
+   - Đảm bảo Client ID là duy nhất
 
-### Lỗi training
-- Kiểm tra RAM đủ cho batch size đã chọn
-- Giảm batch size nếu gặp lỗi memory
-- Tăng số rounds nếu accuracy chưa đạt yêu cầu
+3. Lỗi training:
+   - Kiểm tra RAM đủ cho batch size đã chọn
+   - Xem xét giảm batch size
+   - Kiểm tra logs trong `models/results/`
 
 ## Dependencies chính
 
@@ -174,7 +184,8 @@ Sau khi training, hệ thống sẽ tạo:
 - Flower
 - Flask
 - NumPy
-- Matplotlib
+- Rembg (cho background removal)
+- Pillow
 
 ## Đóng góp
 

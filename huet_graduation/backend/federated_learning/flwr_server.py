@@ -26,12 +26,14 @@ class FederatedServer(fl.server.strategy.FedAvg):
                 metrics=['accuracy']
             )
             # Lưu model ban đầu
-            os.makedirs(os.path.dirname(MODEL_TEMPLATES['initial']), exist_ok=True)
-            self.model.save(MODEL_TEMPLATES['initial'])
+            model_path = MODEL_TEMPLATES['initial']
+            os.makedirs(os.path.dirname(model_path), exist_ok=True)
+            self.model.save(model_path)
         else:
-            if not os.path.exists(MODEL_TEMPLATES['initial']):
+            initial_path = MODEL_TEMPLATES['initial']
+            if not os.path.exists(initial_path):
                 raise ValueError("Initial model not found. Please run initial training first.")
-            self.model = tf.keras.models.load_model(MODEL_TEMPLATES['initial'])
+            self.model = tf.keras.models.load_model(initial_path)
         
         print(f"\nInitializing server in {mode} mode")
 
