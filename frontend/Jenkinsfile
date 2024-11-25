@@ -1,0 +1,42 @@
+pipeline {
+    agent any
+    environment {
+        GIT_REPO_URL="https://gitea.nongnghiepso.com/prac-repo/vue-root.git"
+        ENDPOINT="prac-repo/vue-root"
+        TAG="dev"
+        REGISTRY="registry.nongnghiepso.com"
+    }
+    tools {nodejs "node-16"}
+    stages {
+        stage('Clone') {
+            steps {
+                withCredentials([gitUsernamePassword(credentialsId: 'gitea-root-user', gitToolName: 'Default')]) {
+                    sh "git pull origin main"
+                }
+                writeFile file: '.env', text: '''
+                VUE_APP_VAR_ENV = production hehe
+                '''
+                sh 'cat .env'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh "ls"
+                sh "npm install"
+                sh "npm run build"
+            }
+        }
+        stage('Deploy') {
+            steps {
+                sh "docker -v"
+                dir('.') {
+                    sh "ls"
+                    withDockerRegistry(credentialsId: 'registry-root-user', url: 'https://' + REGISTRY) {
+                        sh "docker build -t $REGISTRY/$ENDPOINT:$TAG ."
+                        sh "docker push $REGISTRY/$ENDPOINT:$TAG"
+                    }
+                }
+            }
+        }
+    }
+}
