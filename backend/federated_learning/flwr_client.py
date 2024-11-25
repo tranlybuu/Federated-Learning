@@ -1,9 +1,10 @@
 import flwr as fl
 import tensorflow as tf
 import numpy as np
+import json
 import argparse
 from ..utils.config import (
-    TRAINING_CONFIG, DATA_CONFIG, 
+    TRAINING_CONFIG, DATA_CONFIG, DATA_RANGES_INFO, DATA_SUMMARY_TEMPLATE,
     INITIAL_MODEL_PATH, CLIENT_MODEL_TEMPLATE, TEST_CONFIG, MODEL_DIR
 )
 from .model import load_model_for_mode
@@ -163,37 +164,50 @@ class TestOnlyClient:
         return evaluation
 
 def load_data(cid, mode):
-    """Load và tiền xử lý dữ liệu MNIST cho client theo mode."""
+    """Load và phân tích dữ liệu MNIST cho client."""
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
     
     # Normalize và reshape
     x_train = x_train.reshape(-1, 28, 28, 1) / 255.0
     x_test = x_test.reshape(-1, 28, 28, 1) / 255.0
     
-    # Lấy data range cho mode và client hiện tại
-    data_range = TRAINING_CONFIG['data_ranges'][mode][str(cid)]
-    start, end = data_range
+    # Lấy data range và labels cho mode và client hiện tại
+    client_info = DATA_RANGES_INFO[mode][str(cid)]
+    data_range = client_info['range']
+    allowed_labels = client_info['labels']
     
-    # Tính số lượng samples cho mỗi số (0-9)
-    samples_per_digit = len(x_train) // 10
+    # Lọc dữ liệu theo labels được chỉ định
+    mask = np.isin(y_train, allowed_labels)
+    x_train_filtered = x_train[mask]
+    y_train_filtered = y_train[mask]
     
-    # Lấy dữ liệu theo range
-    start_idx = start * samples_per_digit
-    end_idx = end * samples_per_digit
+    # Tạo summary về dữ liệu
+    labels, counts = np.unique(y_train_filtered, return_counts=True)
+    data_summary = {
+        'client_id': cid,
+        'mode': mode,
+        'total_samples': len(y_train_filtered),
+        'labels_distribution': {
+            int(label): int(count) for label, count in zip(labels, counts)
+        },
+        'allowed_labels': allowed_labels,
+        'description': client_info['description']
+    }
     
-    client_data = (
-        x_train[start_idx:end_idx], 
-        y_train[start_idx:end_idx],
-        x_test,
-        y_test
-    )
+    # Lưu summary
+    summary_path = DATA_SUMMARY_TEMPLATE.format(f"{mode}_client_{cid}")
+    os.makedirs(os.path.dirname(summary_path), exist_ok=True)
+    with open(summary_path, 'w') as f:
+        json.dump(data_summary, f, indent=4)
     
     print(f"\nClient {cid} ({mode} mode) initialized:")
-    print(f"Data range: {start}-{end}")
-    print(f"Training samples: {end_idx - start_idx}")
-    print(f"Test samples: {len(x_test)}")
+    print(f"Data range: {data_range}")
+    print(f"Labels: {allowed_labels}")
+    print(f"Samples per label:")
+    for label, count in zip(labels, counts):
+        print(f"  Label {label}: {count} samples")
     
-    return client_data
+    return x_train_filtered, y_train_filtered, x_test, y_test
 
 def create_client_parser():
     """Tạo parser với các mô tả chi tiết cho client."""

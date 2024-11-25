@@ -14,6 +14,8 @@ CLIENT_MODEL_TEMPLATE = os.path.join(MODEL_DIR, 'client_{}_model.keras')
 BEST_MODEL_PATH = os.path.join(MODEL_DIR, 'best_model.keras')   
 FINAL_MODEL_PATH = os.path.join(MODEL_DIR, 'final_model.keras')
 
+DATA_SUMMARY_TEMPLATE = os.path.join(MODEL_DIR, '{}_data_summary.json')
+
 # Templates cho tên file models
 MODEL_TEMPLATES = {
     # Basic models
@@ -112,6 +114,38 @@ MODEL_CONFIG = {
         'optimizer': 'adam',
         'loss': 'sparse_categorical_crossentropy',
         'metrics': ['accuracy'],
+    }
+}
+
+DATA_RANGES_INFO = {
+    'initial': {
+        '0': {
+            'range': (0, 3),
+            'labels': [0, 1, 2],
+            'description': 'Training with digits 0, 1, 2'
+        },
+        '1': {
+            'range': (3, 5),
+            'labels': [3, 4],
+            'description': 'Training with digits 3, 4'
+        }
+    },
+    'additional': {
+        '0': {
+            'range': (5, 7),
+            'labels': [5, 6],
+            'description': 'Training with digits 5, 6'
+        },
+        '1': {
+            'range': (7, 9),
+            'labels': [7, 8],
+            'description': 'Training with digits 7, 8'
+        },
+        '2': {
+            'range': (5, 10),
+            'labels': [5, 9],
+            'description': 'Training with digits 5, 9'
+        }
     }
 }
 

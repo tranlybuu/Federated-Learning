@@ -2,8 +2,8 @@ import flwr as fl
 import tensorflow as tf
 from .model import create_model, load_model_for_mode, save_model
 from ..utils.config import (
-    FL_CONFIG, MODEL_DIR, TRAINING_CONFIG,
-    INITIAL_MODEL_PATH, MODEL_TEMPLATES
+    FL_CONFIG, MODEL_DIR, TRAINING_CONFIG, DATA_SUMMARY_TEMPLATE,
+    INITIAL_MODEL_PATH, MODEL_TEMPLATES, DATA_RANGES_INFO
 )
 import os
 import json
@@ -120,6 +120,24 @@ class FederatedServer(fl.server.strategy.FedAvg):
         results_dir = os.path.join(MODEL_DIR, 'results')
         os.makedirs(results_dir, exist_ok=True)
 
+        # Thu thập thông tin data từ các clients
+        data_summaries = []
+        for cid in range(FL_CONFIG[f'min_fit_clients'][self.mode]):
+            summary_path = DATA_SUMMARY_TEMPLATE.format(f"{self.mode}_client_{cid}")
+            if os.path.exists(summary_path):
+                with open(summary_path, 'r') as f:
+                    data_summaries.append(json.load(f))
+        
+        # Tổng hợp thông tin về data
+        total_samples = 0
+        labels_distribution = {}
+        for summary in data_summaries:
+            total_samples += summary['total_samples']
+            for label, count in summary['labels_distribution'].items():
+                if label not in labels_distribution:
+                    labels_distribution[label] = 0
+                labels_distribution[label] += count
+        
         # Save detailed results
         results_path = os.path.join(results_dir, f'{self.mode}_training_results.json')
         final_results = {
@@ -129,20 +147,31 @@ class FederatedServer(fl.server.strategy.FedAvg):
             'total_rounds': self.current_round,
             'final_accuracy': float(self.round_results[-1]['accuracy']),
             'final_loss': float(self.round_results[-1]['loss']),
-            'data_ranges': TRAINING_CONFIG['data_ranges'][self.mode]
+            'data_summary': {
+                'total_samples': total_samples,
+                'labels_distribution': labels_distribution,
+                'clients_data': data_summaries,
+                'data_ranges': DATA_RANGES_INFO[self.mode]
+            }
         }
         
         with open(results_path, 'w') as f:
             json.dump(final_results, f, indent=4)
-            
+        
+        # Print summary
         print(f"\nTraining Summary ({self.mode} mode):")
         print("=" * 50)
         print(f"Total Rounds: {self.current_round}")
         print(f"Best Accuracy: {self.best_accuracy:.4f}")
         print(f"Final Accuracy: {self.round_results[-1]['accuracy']:.4f}")
         print(f"Final Loss: {self.round_results[-1]['loss']:.4f}")
-        print(f"Results saved to: {results_path}")
+        print("\nData Summary:")
+        print(f"Total Samples: {total_samples}")
+        print("Labels Distribution:")
+        for label, count in sorted(labels_distribution.items()):
+            print(f"  Label {label}: {count} samples ({count/total_samples*100:.2f}%)")
         print("=" * 50)
+        print(f"Results saved to: {results_path}")
 
     def get_model_parameters(self):
         """Get current model parameters."""

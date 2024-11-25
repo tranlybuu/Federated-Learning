@@ -1,0 +1,14 @@
+{
+    "client_id": 1,
+    "mode": "initial",
+    "total_samples": 11973,
+    "labels_distribution": {
+        "3": 6131,
+        "4": 5842
+    },
+    "allowed_labels": [
+        3,
+        4
+    ],
+    "description": "Training with digits 3, 4"
+}

@@ -4,67 +4,209 @@
         {
             "round": 1,
             "mode": "initial",
-            "loss": 0.1307341456413269,
-            "accuracy": 0.9616000056266785,
+            "loss": 4.534984588623047,
+            "accuracy": 0.38940000534057617,
             "num_clients": 2,
             "client_metrics": [
                 {
-                    "accuracy": 0.8899999856948853,
-                    "loss": 0.369148850440979
+                    "accuracy": 0.9914616942405701,
+                    "loss": 0.05441521108150482
                 },
                 {
-                    "accuracy": 0.909074068069458,
-                    "loss": 0.3066791594028473
+                    "accuracy": 0.9767302870750427,
+                    "loss": 0.08340863883495331
                 }
             ]
         },
         {
             "round": 2,
             "mode": "initial",
-            "loss": 0.05634671449661255,
-            "accuracy": 0.9805999994277954,
+            "loss": 4.361428737640381,
+            "accuracy": 0.476500004529953,
             "num_clients": 2,
             "client_metrics": [
                 {
-                    "accuracy": 0.9708333611488342,
-                    "loss": 0.09944839775562286
+                    "accuracy": 0.9945704340934753,
+                    "loss": 0.019314788281917572
                 },
                 {
-                    "accuracy": 0.9702469110488892,
-                    "loss": 0.09758138656616211
+                    "accuracy": 0.9950811862945557,
+                    "loss": 0.014156848192214966
                 }
             ]
         },
         {
             "round": 3,
             "mode": "initial",
-            "loss": 0.046278174966573715,
-            "accuracy": 0.9848999977111816,
+            "loss": 4.954497814178467,
+            "accuracy": 0.47690001130104065,
             "num_clients": 2,
             "client_metrics": [
                 {
-                    "accuracy": 0.9788888692855835,
-                    "loss": 0.06658953428268433
+                    "accuracy": 0.9952864050865173,
+                    "loss": 0.013893825933337212
                 },
                 {
-                    "accuracy": 0.9783333539962769,
-                    "loss": 0.06578698754310608
+                    "accuracy": 0.997958242893219,
+                    "loss": 0.00782802514731884
+                }
+            ]
+        },
+        {
+            "round": 4,
+            "mode": "initial",
+            "loss": 5.088753700256348,
+            "accuracy": 0.4404999911785126,
+            "num_clients": 2,
+            "client_metrics": [
+                {
+                    "accuracy": 0.9961217045783997,
+                    "loss": 0.011164815165102482
+                },
+                {
+                    "accuracy": 0.9977726340293884,
+                    "loss": 0.0054716672748327255
+                }
+            ]
+        },
+        {
+            "round": 5,
+            "mode": "initial",
+            "loss": 5.234066963195801,
+            "accuracy": 0.4431999921798706,
+            "num_clients": 2,
+            "client_metrics": [
+                {
+                    "accuracy": 0.9971229434013367,
+                    "loss": 0.009295479394495487
+                },
+                {
+                    "accuracy": 0.9977326989173889,
+                    "loss": 0.007426749914884567
+                }
+            ]
+        },
+        {
+            "round": 6,
+            "mode": "initial",
+            "loss": 7.325205326080322,
+            "accuracy": 0.3497999906539917,
+            "num_clients": 2,
+            "client_metrics": [
+                {
+                    "accuracy": 0.9989790916442871,
+                    "loss": 0.0026912700850516558
+                },
+                {
+                    "accuracy": 0.9967780709266663,
+                    "loss": 0.009911027736961842
+                }
+            ]
+        },
+        {
+            "round": 7,
+            "mode": "initial",
+            "loss": 5.150034427642822,
+            "accuracy": 0.43939998745918274,
+            "num_clients": 2,
+            "client_metrics": [
+                {
+                    "accuracy": 0.993874728679657,
+                    "loss": 0.030496712774038315
+                },
+                {
+                    "accuracy": 0.9986276626586914,
+                    "loss": 0.004840993322432041
+                }
+            ]
+        },
+        {
+            "round": 8,
+            "mode": "initial",
+            "loss": 6.497267723083496,
+            "accuracy": 0.4187999963760376,
+            "num_clients": 2,
+            "client_metrics": [
+                {
+                    "accuracy": 0.9997215867042542,
+                    "loss": 0.0013537545455619693
+                },
+                {
+                    "accuracy": 0.9969570636749268,
+                    "loss": 0.008037632331252098
                 }
             ]
         }
     ],
-    "best_accuracy": 0.9848999977111816,
-    "total_rounds": 3,
-    "final_accuracy": 0.9848999977111816,
-    "final_loss": 0.046278174966573715,
-    "data_ranges": {
-        "0": [
-            0,
-            3
+    "best_accuracy": 0.47690001130104065,
+    "total_rounds": 8,
+    "final_accuracy": 0.4187999963760376,
+    "final_loss": 6.497267723083496,
+    "data_summary": {
+        "total_samples": 30596,
+        "labels_distribution": {
+            "0": 5923,
+            "1": 6742,
+            "2": 5958,
+            "3": 6131,
+            "4": 5842
+        },
+        "clients_data": [
+            {
+                "client_id": 0,
+                "mode": "initial",
+                "total_samples": 18623,
+                "labels_distribution": {
+                    "0": 5923,
+                    "1": 6742,
+                    "2": 5958
+                },
+                "allowed_labels": [
+                    0,
+                    1,
+                    2
+                ],
+                "description": "Training with digits 0, 1, 2"
+            },
+            {
+                "client_id": 1,
+                "mode": "initial",
+                "total_samples": 11973,
+                "labels_distribution": {
+                    "3": 6131,
+                    "4": 5842
+                },
+                "allowed_labels": [
+                    3,
+                    4
+                ],
+                "description": "Training with digits 3, 4"
+            }
         ],
-        "1": [
-            3,
-            5
-        ]
+        "data_ranges": {
+            "0": {
+                "range": [
+                    0,
+                    3
+                ],
+                "labels": [
+                    0,
+                    1,
+                    2
+                ],
+                "description": "Training with digits 0, 1, 2"
+            },
+            "1": {
+                "range": [
+                    3,
+                    5
+                ],
+                "labels": [
+                    3,
+                    4
+                ],
+                "description": "Training with digits 3, 4"
+            }
+        }
     }
 }
