@@ -31,7 +31,17 @@ def get_available_models():
                     os.path.getmtime(path)
                 ).strftime('%Y-%m-%d %H:%M:%S')
             })
-    return sorted(models, key=lambda x: x['last_modified'], reverse=True)
+    def get_priority(model):
+        name = model['name'].lower()
+        if 'best_additional_model' in name:
+            return 0  # Ưu tiên cao nhất
+        elif 'best_initial_model' in name:
+            return 1  # Ưu tiên thứ hai
+        return 2     # Các file còn lại
+
+    # Sắp xếp theo priority trước, sau đó mới đến last_modified
+    return sorted(models, key=lambda x: (get_priority(x), 
+                        -datetime.strptime(x['last_modified'], '%Y-%m-%d %H:%M:%S').timestamp()))
 
 def load_model_by_name(model_name):
     """Load model theo tên."""
@@ -189,6 +199,9 @@ def recognize():
         prediction = model.predict(image_array)
         digit = np.argmax(prediction[0])
         confidence = float(prediction[0][digit])
+        all_confidence = []
+        for i in prediction[0]:
+            all_confidence.append(round(float(i),6))
         
         # Chuẩn bị thông tin response
         model_info = {
@@ -202,6 +215,8 @@ def recognize():
         return jsonify({
             'digit': int(digit),
             'confidence': confidence,
+            'confidence': round(confidence*100,4),
+            'all_confidence': all_confidence,
             'success': True,
             'model_info': model_info,
             'prediction_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
