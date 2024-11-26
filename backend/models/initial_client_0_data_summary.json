@@ -1,11 +1,21 @@
 {
     "client_id": 0,
     "mode": "initial",
-    "total_samples": 18623,
-    "labels_distribution": {
-        "0": 5923,
-        "1": 6742,
-        "2": 5958
+    "train": {
+        "total_samples": 18623,
+        "labels_distribution": {
+            "0": 5923,
+            "1": 6742,
+            "2": 5958
+        }
+    },
+    "test": {
+        "total_samples": 3147,
+        "labels_distribution": {
+            "0": 980,
+            "1": 1135,
+            "2": 1032
+        }
     },
     "allowed_labels": [
         0,

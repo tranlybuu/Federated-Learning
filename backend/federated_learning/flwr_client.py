@@ -166,48 +166,69 @@ class TestOnlyClient:
 def load_data(cid, mode):
     """Load và phân tích dữ liệu MNIST cho client."""
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
-    
+   
     # Normalize và reshape
     x_train = x_train.reshape(-1, 28, 28, 1) / 255.0
     x_test = x_test.reshape(-1, 28, 28, 1) / 255.0
-    
+   
     # Lấy data range và labels cho mode và client hiện tại
     client_info = DATA_RANGES_INFO[mode][str(cid)]
-    data_range = client_info['range']
     allowed_labels = client_info['labels']
+   
+    # Lọc dữ liệu train theo labels được chỉ định
+    train_mask = np.isin(y_train, allowed_labels)
+    x_train_filtered = x_train[train_mask]
+    y_train_filtered = y_train[train_mask]
     
-    # Lọc dữ liệu theo labels được chỉ định
-    mask = np.isin(y_train, allowed_labels)
-    x_train_filtered = x_train[mask]
-    y_train_filtered = y_train[mask]
+    # Lọc dữ liệu test theo labels được chỉ định
+    test_mask = np.isin(y_test, allowed_labels)
+    x_test_filtered = x_test[test_mask]
+    y_test_filtered = y_test[test_mask]
+
+    # Tính phân bố cho tập train
+    train_labels, train_counts = np.unique(y_train_filtered, return_counts=True)
+    train_distribution = {
+        int(label): int(count) for label, count in zip(train_labels, train_counts)
+    }
     
+    # Tính phân bố cho tập test
+    test_labels, test_counts = np.unique(y_test_filtered, return_counts=True)
+    test_distribution = {
+        int(label): int(count) for label, count in zip(test_labels, test_counts)
+    }
+   
     # Tạo summary về dữ liệu
-    labels, counts = np.unique(y_train_filtered, return_counts=True)
     data_summary = {
         'client_id': cid,
         'mode': mode,
-        'total_samples': len(y_train_filtered),
-        'labels_distribution': {
-            int(label): int(count) for label, count in zip(labels, counts)
+        'train': {
+            'total_samples': len(y_train_filtered),
+            'labels_distribution': train_distribution
+        },
+        'test': {
+            'total_samples': len(y_test_filtered),
+            'labels_distribution': test_distribution
         },
         'allowed_labels': allowed_labels,
         'description': client_info['description']
     }
-    
+   
     # Lưu summary
     summary_path = DATA_SUMMARY_TEMPLATE.format(f"{mode}_client_{cid}")
     os.makedirs(os.path.dirname(summary_path), exist_ok=True)
     with open(summary_path, 'w') as f:
         json.dump(data_summary, f, indent=4)
-    
+   
     print(f"\nClient {cid} ({mode} mode) initialized:")
-    print(f"Data range: {data_range}")
     print(f"Labels: {allowed_labels}")
-    print(f"Samples per label:")
-    for label, count in zip(labels, counts):
+    print("Train data distribution:")
+    for label, count in train_distribution.items():
         print(f"  Label {label}: {count} samples")
-    
-    return x_train_filtered, y_train_filtered, x_test, y_test
+    print("Test data distribution:")
+    for label, count in test_distribution.items():
+        print(f"  Label {label}: {count} samples")
+   
+    return x_train_filtered, y_train_filtered, x_test_filtered, y_test_filtered
 
 def create_client_parser():
     """Tạo parser với các mô tả chi tiết cho client."""

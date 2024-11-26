@@ -4,77 +4,99 @@
         {
             "round": 1,
             "mode": "initial",
-            "loss": 4.809957981109619,
-            "accuracy": 0.3361000120639801,
+            "loss": 5.88577938079834,
+            "accuracy": 0.3010999858379364,
             "num_clients": 2,
             "client_metrics": [
                 {
-                    "accuracy": 0.9866357445716858,
-                    "loss": 0.05465653911232948
+                    "accuracy": 0.9775406122207642,
+                    "loss": 0.07114403694868088
                 },
                 {
-                    "accuracy": 0.9742839932441711,
-                    "loss": 0.07823774963617325
+                    "accuracy": 0.9739260077476501,
+                    "loss": 0.07615194469690323
                 }
             ]
         },
         {
             "round": 2,
             "mode": "initial",
-            "loss": 3.820685625076294,
-            "accuracy": 0.46230000257492065,
+            "loss": 4.3605780601501465,
+            "accuracy": 0.40290001034736633,
             "num_clients": 2,
             "client_metrics": [
                 {
-                    "accuracy": 0.9938544034957886,
-                    "loss": 0.02116622030735016
+                    "accuracy": 0.9925754070281982,
+                    "loss": 0.026816071942448616
                 },
                 {
-                    "accuracy": 0.9934106469154358,
-                    "loss": 0.02070850133895874
+                    "accuracy": 0.9933770895004272,
+                    "loss": 0.019741566851735115
                 }
             ]
         },
         {
             "round": 3,
             "mode": "initial",
-            "loss": 7.376857757568359,
-            "accuracy": 0.32330000400543213,
+            "loss": 6.31240177154541,
+            "accuracy": 0.321399986743927,
             "num_clients": 2,
             "client_metrics": [
                 {
-                    "accuracy": 0.997215747833252,
-                    "loss": 0.008020174689590931
+                    "accuracy": 0.9981438517570496,
+                    "loss": 0.007397008594125509
                 },
                 {
-                    "accuracy": 0.9957040548324585,
-                    "loss": 0.01307567860931158
+                    "accuracy": 0.9945107102394104,
+                    "loss": 0.016960754990577698
                 }
             ]
         }
     ],
-    "best_accuracy": 0.46230000257492065,
+    "best_accuracy": 0.40290001034736633,
     "total_rounds": 3,
-    "final_accuracy": 0.32330000400543213,
-    "final_loss": 7.376857757568359,
+    "final_accuracy": 0.321399986743927,
+    "final_loss": 6.31240177154541,
     "data_summary": {
-        "total_samples": 30596,
-        "labels_distribution": {
-            "0": 5923,
-            "1": 6742,
-            "2": 5958,
-            "3": 6131,
-            "4": 5842
+        "train": {
+            "total_samples": 30596,
+            "labels_distribution": {
+                "0": 5923,
+                "1": 6742,
+                "2": 5958,
+                "3": 6131,
+                "4": 5842
+            }
+        },
+        "test": {
+            "total_samples": 5139,
+            "labels_distribution": {
+                "0": 980,
+                "1": 1135,
+                "2": 1032,
+                "3": 1010,
+                "4": 982
+            }
         },
         "clients_data": [
             {
                 "client_id": 0,
                 "mode": "initial",
-                "total_samples": 18623,
-                "labels_distribution": {
-                    "0": 5923,
-                    "1": 6742,
-                    "2": 5958
+                "train": {
+                    "total_samples": 18623,
+                    "labels_distribution": {
+                        "0": 5923,
+                        "1": 6742,
+                        "2": 5958
+                    }
+                },
+                "test": {
+                    "total_samples": 3147,
+                    "labels_distribution": {
+                        "0": 980,
+                        "1": 1135,
+                        "2": 1032
+                    }
                 },
                 "allowed_labels": [
                     0,
@@ -86,10 +108,19 @@
             {
                 "client_id": 1,
                 "mode": "initial",
-                "total_samples": 11973,
-                "labels_distribution": {
-                    "3": 6131,
-                    "4": 5842
+                "train": {
+                    "total_samples": 11973,
+                    "labels_distribution": {
+                        "3": 6131,
+                        "4": 5842
+                    }
+                },
+                "test": {
+                    "total_samples": 1992,
+                    "labels_distribution": {
+                        "3": 1010,
+                        "4": 982
+                    }
                 },
                 "allowed_labels": [
                     3,

@@ -122,22 +122,33 @@ class FederatedServer(fl.server.strategy.FedAvg):
 
         # Thu thập thông tin data từ các clients
         data_summaries = []
+        total_train_samples = 0
+        total_test_samples = 0
+        train_distribution = {}
+        test_distribution = {}
+
         for cid in range(FL_CONFIG[f'min_fit_clients'][self.mode]):
             summary_path = DATA_SUMMARY_TEMPLATE.format(f"{self.mode}_client_{cid}")
             if os.path.exists(summary_path):
                 with open(summary_path, 'r') as f:
-                    data_summaries.append(json.load(f))
-        
-        # Tổng hợp thông tin về data
-        total_samples = 0
-        labels_distribution = {}
-        for summary in data_summaries:
-            total_samples += summary['total_samples']
-            for label, count in summary['labels_distribution'].items():
-                if label not in labels_distribution:
-                    labels_distribution[label] = 0
-                labels_distribution[label] += count
-        
+                    client_summary = json.load(f)
+                    data_summaries.append(client_summary)
+                    
+                    # Cộng dồn số lượng mẫu
+                    total_train_samples += client_summary['train']['total_samples']
+                    total_test_samples += client_summary['test']['total_samples']
+                    
+                    # Cộng dồn phân bố labels
+                    for label, count in client_summary['train']['labels_distribution'].items():
+                        if label not in train_distribution:
+                            train_distribution[label] = 0
+                        train_distribution[label] += count
+                        
+                    for label, count in client_summary['test']['labels_distribution'].items():
+                        if label not in test_distribution:
+                            test_distribution[label] = 0
+                        test_distribution[label] += count
+
         # Save detailed results
         results_path = os.path.join(results_dir, f'{self.mode}_training_results.json')
         final_results = {
@@ -148,8 +159,14 @@ class FederatedServer(fl.server.strategy.FedAvg):
             'final_accuracy': float(self.round_results[-1]['accuracy']),
             'final_loss': float(self.round_results[-1]['loss']),
             'data_summary': {
-                'total_samples': total_samples,
-                'labels_distribution': labels_distribution,
+                'train': {
+                    'total_samples': total_train_samples,
+                    'labels_distribution': train_distribution
+                },
+                'test': {
+                    'total_samples': total_test_samples,
+                    'labels_distribution': test_distribution
+                },
                 'clients_data': data_summaries,
                 'data_ranges': DATA_RANGES_INFO[self.mode]
             }
@@ -166,10 +183,16 @@ class FederatedServer(fl.server.strategy.FedAvg):
         print(f"Final Accuracy: {self.round_results[-1]['accuracy']:.4f}")
         print(f"Final Loss: {self.round_results[-1]['loss']:.4f}")
         print("\nData Summary:")
-        print(f"Total Samples: {total_samples}")
+        print("Training Data:")
+        print(f"Total Samples: {total_train_samples}")
         print("Labels Distribution:")
-        for label, count in sorted(labels_distribution.items()):
-            print(f"  Label {label}: {count} samples ({count/total_samples*100:.2f}%)")
+        for label, count in sorted(train_distribution.items()):
+            print(f"  Label {label}: {count} samples ({count/total_train_samples*100:.2f}%)")
+        print("\nTest Data:")
+        print(f"Total Samples: {total_test_samples}")
+        print("Labels Distribution:")
+        for label, count in sorted(test_distribution.items()):
+            print(f"  Label {label}: {count} samples ({count/total_test_samples*100:.2f}%)")
         print("=" * 50)
         print(f"Results saved to: {results_path}")
 
