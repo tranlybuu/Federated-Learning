@@ -53,11 +53,28 @@ backend/
 
 ## Cài đặt
 
-1. Tạo và kích hoạt môi trường ảo:
+1. Cài đặt môi trường ảo:
+
+Dành cho Windows: Cài đặt `pyenv-win` ở PowerShell
 ```bash
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/pyenv-win/pyenv-win/master/pyenv-win/install-pyenv-win.ps1" -OutFile "./install-pyenv-win.ps1"; &"./install-pyenv-win.ps1"
 ```
+
+Cài đặt python version: `pyenv install 3.11.9`
+
+Cài đặt môi trường ảo mới: `pyenv-venv install 3.11.9 <env_name>`
+
+Hiện danh sách các môi trường ảo đã được cài đặt: `pyenv-venv list envs`
+
+Hiện danh sách các phiên bản Python đã được cài đặt: `pyenv-venv list python`
+
+Gỡ cài đặt môi trường ảo: `pyenv-venv uninstall <env_name>`
+
+Các lệnh khác:
+
+- Kích hoạt môi trường ảo: `pyenv-venv activate <env_name>`
+- Gỡ kích hoạt: `pyenv-venv deactivate`
+
 
 2. Cài đặt dependencies:
 ```bash
