@@ -122,10 +122,14 @@ def recognize():
         # Dự đoán
         prediction = model.predict(image_array)
         digit = np.argmax(prediction[0])
-        confidence = float(prediction[0][digit])
+        confidence = round(float(prediction[0][digit])*100,2)
+        all_confidence = []
+        for i in prediction[0]:
+            all_confidence.append(round(float(i), 6))
         
         return jsonify({
             'digit': int(digit),
+            'all_confidence': all_confidence,
             'confidence': confidence,
             'success': True
         })

@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto container py-4 grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-2 lg:gap-5 min-h-screen" v-if="!isLoading">
+  <div class="mx-auto container py-4 grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-2 lg:gap-5 h-max" v-if="!isLoading">
     <div class="flex flex-col gap-6 lg:col-span-2">
       <h1 class="font-bold text-2xl">Tổng quan Dataset</h1>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -47,30 +47,89 @@
     </div>
 
     <div class="flex flex-col gap-4 lg:pl-4">
-      <h1 class="font-bold text-2xl">Dự đoán</h1>
-      <DrawComponent class="max-w-20" />
-      <button @click="predictNow" class="btn btn-wide mx-auto">Dự đoán ngay</button>
+      <h1 class="font-bold text-2xl text-center">Dự đoán</h1>
+      <DrawComponent @update="v => predictNow(v)" />
     </div>
     <input type="checkbox" hidden id="my_modal" class="modal-toggle"  />
     <div class="modal" role="dialog">
       <div class="modal-box max-w-fit">
-        <div class="flex justify-between">
-          <h3 class="text-lg font-bold">Thống kê dự đoán của các mô hình</h3>
-          <p class="text-lg font-bold">Kết quả tối ưu: {{ bestChoice }}</p>
-        </div>
-        <div v-if="predictions.length>0" class="grid grid-cols-4 gap-4 mt-4">
-          <div v-for="prediction in predictions" :key="prediction.name" class="p-4 rounded-xl bg-blue-50 shadow-lg">
-            <div  class="flex justify-between align-middle items-center gap-4">
-              <p class="font-bold">Tên mô hình</p>
-              <p>{{ prediction.name.replace("OvO", " - OneVsOne").replace("OvA", " - OneVsAll") }}</p>
+        <div v-if="prediction != null">
+          <div class="flex flex-col md:flex-row gap-4 md:gap-8 w-auto">
+            <div class="flex flex-col gap-4 items-start">
+              <h3 class="text-2xl font-extrabold text-red-900 italic lg:w-max">Thống kê dự đoán của mô hình</h3>
+              <div  class="flex justify-between align-middle items-center gap-4">
+                <p class="font-bold">Tên mô hình</p>
+                <p>{{ prediction.success }}</p>
+              </div>
+              <div  class="flex justify-between align-middle items-center gap-4">
+                <p class="font-bold">Mức độ tự tin</p>
+                <p>{{ prediction.confidence }}%</p>
+              </div>
+              <div  class="flex justify-between align-middle items-center gap-4">
+                <p class="font-bold">Kết quả dự đoán</p>
+                <p class="font-semibold">{{ prediction.digit }}</p>
+              </div>
             </div>
-            <div  class="flex justify-between align-middle items-center gap-4">
-              <p class="font-bold">Độ chính xác</p>
-              <p>{{ prediction.accuracy }}%</p>
-            </div>
-            <div  class="flex justify-between align-middle items-center gap-4">
-              <p class="font-bold">Kết quả dự đoán</p>
-              <p class="font-semibold">{{ prediction.predict_class }}</p>
+            <div class="relative w-full md:max-w-[250px] mx-auto bg-gray-100">
+              <div class="grid grid-cols-3">
+                <!-- Row 1 -->
+                <div class="rounded-tl-lg flex flex-col items-center justify-center py-3 m-[0.5px] border-[1px] min-w-[80px]" 
+                    :class="[1 == prediction.digit ? 'bg-gray-300 border-black' : 'bg-gray-200 border-gray-400']">
+                  <span class="text-2xl font-bold">1</span>
+                  <span class="text-sm mt-0.5 text-gray-600 italic">{{ prediction.all_confidence[1] }}</span>
+                </div>
+                <div class="flex flex-col items-center justify-center py-3 m-[0.5px] border-[1px] min-w-[80px]" 
+                    :class="[2 == prediction.digit ? 'bg-gray-300 border-black' : 'bg-gray-200 border-gray-400']">
+                  <span class="text-2xl font-bold">2</span>
+                  <span class="text-sm mt-0.5 text-gray-600 italic">{{ prediction.all_confidence[2] }}</span>
+                </div>
+                <div class="rounded-tr-lg flex flex-col items-center justify-center py-3 m-[0.5px] border-[1px] min-w-[80px]" 
+                    :class="[3 == prediction.digit ? 'bg-gray-300 border-black' : 'bg-gray-200 border-gray-400']">
+                  <span class="text-2xl font-bold">3</span>
+                  <span class="text-sm mt-0.5 text-gray-600 italic">{{ prediction.all_confidence[3] }}</span>
+                </div>
+
+                <!-- Row 2 -->
+                <div class="flex flex-col items-center justify-center py-3 m-[0.5px] border-[1px] min-w-[80px]" 
+                    :class="[4 == prediction.digit ? 'bg-gray-300 border-black' : 'bg-gray-200 border-gray-400']">
+                  <span class="text-2xl font-bold">4</span>
+                  <span class="text-sm mt-0.5 text-gray-600 italic">{{ prediction.all_confidence[4] }}</span>
+                </div>
+                <div class="flex flex-col items-center justify-center py-3 m-[0.5px] border-[1px] min-w-[80px]" 
+                    :class="[5 == prediction.digit ? 'bg-gray-300 border-black' : 'bg-gray-200 border-gray-400']">
+                  <span class="text-2xl font-bold">5</span>
+                  <span class="text-sm mt-0.5 text-gray-600 italic">{{ prediction.all_confidence[5] }}</span>
+                </div>
+                <div class="flex flex-col items-center justify-center py-3 m-[0.5px] border-[1px] min-w-[80px]" 
+                    :class="[6 == prediction.digit ? 'bg-gray-300 border-black' : 'bg-gray-200 border-gray-400']">
+                  <span class="text-2xl font-bold">6</span>
+                  <span class="text-sm mt-0.5 text-gray-600 italic">{{ prediction.all_confidence[6] }}</span>
+                </div>
+
+                <!-- Row 3 -->
+                <div class="flex flex-col items-center justify-center py-3 m-[0.5px] border-[1px] min-w-[80px]" 
+                    :class="[7 == prediction.digit ? 'bg-gray-300 border-black' : 'bg-gray-200 border-gray-400']">
+                  <span class="text-2xl font-bold">7</span>
+                  <span class="text-sm mt-0.5 text-gray-600 italic">{{ prediction.all_confidence[7] }}</span>
+                </div>
+                <div class="flex flex-col items-center justify-center py-3 m-[0.5px] border-[1px] min-w-[80px]" 
+                    :class="[8 == prediction.digit ? 'bg-gray-300 border-black' : 'bg-gray-200 border-gray-400']">
+                  <span class="text-2xl font-bold">8</span>
+                  <span class="text-sm mt-0.5 text-gray-600 italic">{{ prediction.all_confidence[8] }}</span>
+                </div>
+                <div class="flex flex-col items-center justify-center py-3 m-[0.5px] border-[1px] min-w-[80px]" 
+                    :class="[9 == prediction.digit ? 'bg-gray-300 border-black' : 'bg-gray-200 border-gray-400']">
+                  <span class="text-2xl font-bold">9</span>
+                  <span class="text-sm mt-0.5 text-gray-600 italic">{{ prediction.all_confidence[9] }}</span>
+                </div>
+
+                <!-- Row 4 -->
+                <div class="rounded-b-lg flex flex-col col-span-3 items-center justify-center py-3 m-[0.5px] border-[1px] min-w-[80px]" 
+                    :class="[0 == prediction.digit ? 'bg-gray-300 border-black' : 'bg-gray-200 border-gray-400']">
+                  <span class="text-2xl font-bold">0</span>
+                  <span class="text-sm mt-0.5 text-gray-600 italic">{{ prediction.all_confidence[0] }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -115,29 +174,7 @@ export default {
   },
   data(){
     return {
-      entry: {
-        'battery_power': null,
-        'blue': false,
-        'clock_speed': null,
-        'dual_sim': false,
-        'fc': null,
-        'four_g': false,
-        'int_memory': null,
-        'm_dep': null,
-        'mobile_wt': null,
-        'n_cores': null,
-        'pc': null,
-        'px_height': null,
-        'px_width': null,
-        'ram': null,
-        'sc_h': null,
-        'sc_w': null,
-        'talk_time': null,
-        'three_g': false,
-        'touch_screen': false,
-        'wifi': false,
-      },
-      "predictions": [],
+      "prediction": null,
       "overall_info": {
         "number_of_feature": "",
         "number_of_sample": "",
@@ -145,73 +182,22 @@ export default {
         "training_sample": ""
       },
       "all_model": [],
-      "non_label_dataset": [],
       "isLoading": true
     }
   },
   methods: {
-    parseEntry(data) {
-      let keys = ["dual_sim", "four_g", "blue", "three_g", "touch_screen", "wifi"]
-      for (let key in keys) {
-        if (data[keys[key]] == 1) {
-          data[keys[key]] = true
-        } else {
-          data[keys[key]] = false
-        }
-      }
-      this.entry = data
-    },
-    predictNow() {
-      for (let key in this.entry) {
-        if (key in this.entry) {
-          if (this.entry[key] == null) {
-            this.$swal('Vui lòng điền đầy đủ thông tin', '', "error");
-            return
-          }
-        }
-      }
-      for (let key in this.entry) {
-        if (key in this.entry) {
-          if (this.entry[key] == true) {
-            this.entry[key] = 1
-            continue
-          }
-          if (this.entry[key] == false) {
-            this.entry[key] = 0
-            continue
-          }
-        }
-      }
-      this.predictions = []
-      this.bestChoice = ""
-      axios.post(api_url + "recognize", this.entry, {timeout: 60000})
+    predictNow(imageUrl) {
+      this.prediction =  null
+      const modal = document.getElementById('my_modal')
+      modal.click()
+      axios.post(api_url + "recognize", imageUrl, {
+        headers: {
+          'Content-Type': 'image/png'
+        },
+        timeout: 60000
+      })
         .then(response => {
-          const modal = document.getElementById('my_modal')
-          modal.click()
-          this.predictions =  response.data.entries
-          this.bestChoice = response.data.best_choice
-          this.entry = {
-            'battery_power': null,
-            'blue': false,
-            'clock_speed': null,
-            'dual_sim': false,
-            'fc': null,
-            'four_g': false,
-            'int_memory': null,
-            'm_dep': null,
-            'mobile_wt': null,
-            'n_cores': null,
-            'pc': null,
-            'px_height': null,
-            'px_width': null,
-            'ram': null,
-            'sc_h': null,
-            'sc_w': null,
-            'talk_time': null,
-            'three_g': false,
-            'touch_screen': false,
-            'wifi': false,
-          }
+          this.prediction =  response.data
         })
         .catch(error => {
           console.error(error);
