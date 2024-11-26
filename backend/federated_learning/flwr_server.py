@@ -16,6 +16,8 @@ class FederatedServer(fl.server.strategy.FedAvg):
         self.round_results = []
         self.current_round = 0
         self.best_accuracy = 0.0
+        self.active_clients = set()
+        self.client_id_map = {}  # Theo dõi clients đang tham gia
         
         # Khởi tạo hoặc load model dựa trên mode
         if mode == 'initial':
@@ -40,10 +42,31 @@ class FederatedServer(fl.server.strategy.FedAvg):
     def aggregate_fit(self, server_round, results, failures):
         """Tổng hợp kết quả training từ clients."""
         self.current_round = server_round
+
         print(f"\nRound {server_round} ({self.mode} mode):")
         print(f"Active clients: {len(results)}")
         print(f"Failures: {len(failures)}")
-        
+
+        # Cập nhật danh sách clients đang tham gia
+        for client_proxy, fit_res in results:
+            numeric_cid = fit_res.metrics.get('client_id')
+            if numeric_cid:
+                self.client_id_map[client_proxy.cid] = str(numeric_cid)
+                self.active_clients.add(str(numeric_cid))
+
+        # Kiểm tra số lượng clients
+        phase_reqs = DATA_RANGES_INFO['phase_requirements'][self.mode]
+        if len(self.active_clients) < phase_reqs['min_clients']:
+            raise ValueError(
+                f"Phase {self.mode} requires minimum {phase_reqs['min_clients']} clients, "
+                f"but only {len(self.active_clients)} are active"
+            )
+        if len(self.active_clients) > phase_reqs['max_clients']:
+            raise ValueError(
+                f"Phase {self.mode} allows maximum {phase_reqs['max_clients']} clients, "
+                f"but {len(self.active_clients)} are active"
+            )
+
         if not results:
             return None, {}
 
@@ -51,13 +74,14 @@ class FederatedServer(fl.server.strategy.FedAvg):
         weights = []
         num_examples = []
         metrics = []
-        
+
         for client_proxy, fit_res in results:
             client_weights = fl.common.parameters_to_ndarrays(fit_res.parameters)
             weights.append(client_weights)
             num_examples.append(fit_res.num_examples)
             metrics.append(fit_res.metrics)
-            print(f"Client metrics: {fit_res.metrics}")
+            numeric_cid = self.client_id_map.get(client_proxy.cid, 'unknown')
+            print(f"Client {numeric_cid} metrics: {fit_res.metrics}")
 
         total_examples = sum(num_examples)
         if total_examples == 0:
@@ -65,9 +89,7 @@ class FederatedServer(fl.server.strategy.FedAvg):
 
         # Aggregate weights using weighted average
         weighted_weights = [
-            np.sum([
-                w[i] * n for w, n in zip(weights, num_examples)
-            ], axis=0) / total_examples
+            np.sum([w[i] * n for w, n in zip(weights, num_examples)], axis=0) / total_examples
             for i in range(len(weights[0]))
         ]
 
@@ -85,6 +107,7 @@ class FederatedServer(fl.server.strategy.FedAvg):
             'num_clients': len(results),
             'client_metrics': metrics
         }
+
         self.round_results.append(round_metrics)
 
         # Save best model if accuracy improved
@@ -102,7 +125,6 @@ class FederatedServer(fl.server.strategy.FedAvg):
         if server_round == self.num_rounds:
             self._save_final_results()
 
-        # Convert weights back to Parameters
         return fl.common.ndarrays_to_parameters(weighted_weights), {
             "loss": float(test_loss),
             "accuracy": float(test_accuracy)
@@ -116,41 +138,43 @@ class FederatedServer(fl.server.strategy.FedAvg):
 
     def _save_final_results(self):
         """Save final results and training history."""
-        # Create results directory if it doesn't exist
         results_dir = os.path.join(MODEL_DIR, 'results')
         os.makedirs(results_dir, exist_ok=True)
 
-        # Thu thập thông tin data từ các clients
         data_summaries = []
         total_train_samples = 0
         total_test_samples = 0
         train_distribution = {}
         test_distribution = {}
 
-        for cid in range(FL_CONFIG[f'min_fit_clients'][self.mode]):
-            summary_path = DATA_SUMMARY_TEMPLATE.format(f"{self.mode}_client_{cid}")
+        for numeric_cid in self.active_clients:
+            summary_path = DATA_SUMMARY_TEMPLATE.format(f"{self.mode}_client_{numeric_cid}")
             if os.path.exists(summary_path):
                 with open(summary_path, 'r') as f:
                     client_summary = json.load(f)
-                    data_summaries.append(client_summary)
-                    
-                    # Cộng dồn số lượng mẫu
-                    total_train_samples += client_summary['train']['total_samples']
-                    total_test_samples += client_summary['test']['total_samples']
-                    
-                    # Cộng dồn phân bố labels
-                    for label, count in client_summary['train']['labels_distribution'].items():
-                        if label not in train_distribution:
-                            train_distribution[label] = 0
-                        train_distribution[label] += count
-                        
-                    for label, count in client_summary['test']['labels_distribution'].items():
-                        if label not in test_distribution:
-                            test_distribution[label] = 0
-                        test_distribution[label] += count
+                
+                data_summaries.append(client_summary)
+                
+                total_train_samples += client_summary['train']['total_samples']
+                total_test_samples += client_summary['test']['total_samples']
 
-        # Save detailed results
-        results_path = os.path.join(results_dir, f'{self.mode}_training_results.json')
+                for label, count in client_summary['train']['labels_distribution'].items():
+                    if label not in train_distribution:
+                        train_distribution[label] = 0
+                    train_distribution[label] += count
+
+                for label, count in client_summary['test']['labels_distribution'].items():
+                    if label not in test_distribution:
+                        test_distribution[label] = 0
+                    test_distribution[label] += count
+
+        # Lấy thông tin ranges cho các numeric client IDs
+        active_client_ranges = {}
+        for numeric_cid in self.active_clients:
+            if numeric_cid in DATA_RANGES_INFO['client_ranges']:
+                active_client_ranges[numeric_cid] = DATA_RANGES_INFO['client_ranges'][numeric_cid]
+
+        # Create final results
         final_results = {
             'mode': self.mode,
             'round_results': self.round_results,
@@ -168,13 +192,16 @@ class FederatedServer(fl.server.strategy.FedAvg):
                     'labels_distribution': test_distribution
                 },
                 'clients_data': data_summaries,
-                'data_ranges': DATA_RANGES_INFO[self.mode]
+                'active_clients': list(self.active_clients),
+                'client_ranges': active_client_ranges,
+                'phase_requirements': DATA_RANGES_INFO['phase_requirements'][self.mode]
             }
         }
-        
+
+        results_path = os.path.join(results_dir, f'best_{self.mode}_model.json')
         with open(results_path, 'w') as f:
             json.dump(final_results, f, indent=4)
-        
+
         # Print summary
         print(f"\nTraining Summary ({self.mode} mode):")
         print("=" * 50)
@@ -182,6 +209,7 @@ class FederatedServer(fl.server.strategy.FedAvg):
         print(f"Best Accuracy: {self.best_accuracy:.4f}")
         print(f"Final Accuracy: {self.round_results[-1]['accuracy']:.4f}")
         print(f"Final Loss: {self.round_results[-1]['loss']:.4f}")
+        print(f"Active Clients: {sorted(list(self.active_clients))}")
         print("\nData Summary:")
         print("Training Data:")
         print(f"Total Samples: {total_train_samples}")
@@ -202,13 +230,12 @@ class FederatedServer(fl.server.strategy.FedAvg):
 
 def start_server(mode, num_rounds=None, min_fit_clients=None, min_evaluate_clients=None):
     """Start Flower server with specified configuration."""
-    # Set default values if not provided
     if num_rounds is None:
         num_rounds = FL_CONFIG['num_rounds'].get(mode, 3)
-    
+
     if min_fit_clients is None:
         min_fit_clients = FL_CONFIG['min_fit_clients'].get(mode, 2)
-    
+
     if min_evaluate_clients is None:
         min_evaluate_clients = FL_CONFIG['min_evaluate_clients'].get(mode, 2)
 
@@ -219,7 +246,6 @@ def start_server(mode, num_rounds=None, min_fit_clients=None, min_evaluate_clien
     print(f"Number of rounds: {num_rounds}")
     print(f"Minimum fit clients: {min_fit_clients}")
     print(f"Minimum evaluate clients: {min_evaluate_clients}")
-    print(f"Data ranges: {TRAINING_CONFIG['data_ranges'][mode]}")
     print("=" * 50)
 
     # Initialize strategy
@@ -231,6 +257,7 @@ def start_server(mode, num_rounds=None, min_fit_clients=None, min_evaluate_clien
         min_evaluate_clients=min_evaluate_clients,
         min_available_clients=FL_CONFIG['min_available_clients'].get(mode, min_fit_clients)
     )
+
     strategy.num_rounds = num_rounds
 
     # Start server

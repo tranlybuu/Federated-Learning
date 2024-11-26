@@ -52,25 +52,25 @@ FL_CONFIG = {
         'initial': 3,
         'additional': 5,
     },
-    
+
     # Số clients tối thiểu cho mỗi mode
     'min_fit_clients': {
         'initial': 2,
         'additional': 3,
     },
-    
+
     # Số clients tối thiểu cho evaluation
     'min_evaluate_clients': {
         'initial': 2,
         'additional': 3,
     },
-    
+
     # Số clients tối thiểu cần có
     'min_available_clients': {
         'initial': 2,
         'additional': 3,
     },
-    
+
     # Tỷ lệ clients sử dụng cho training/evaluation
     'fraction_fit': 0.7,
     'fraction_evaluate': 0.7,
@@ -118,33 +118,46 @@ MODEL_CONFIG = {
 }
 
 DATA_RANGES_INFO = {
-    'initial': {
-        '0': {
+    'client_ranges': {
+        '1': {
             'range': (0, 3),
             'labels': [0, 1, 2],
-            'description': 'Training with digits 0, 1, 2'
-        },
-        '1': {
-            'range': (3, 5),
-            'labels': [3, 4],
-            'description': 'Training with digits 3, 4'
-        }
-    },
-    'additional': {
-        '0': {
-            'range': (5, 7),
-            'labels': [5, 6],
-            'description': 'Training with digits 5, 6'
-        },
-        '1': {
-            'range': (7, 9),
-            'labels': [7, 8],
-            'description': 'Training with digits 7, 8'
+            'description': 'Training with digits 0, 1, 2',
+            'phase': 'initial'
         },
         '2': {
+            'range': (3, 5),
+            'labels': [3, 4],
+            'description': 'Training with digits 3, 4',
+            'phase': 'initial'
+        },
+        '3': {
+            'range': (5, 7),
+            'labels': [5, 6],
+            'description': 'Training with digits 5, 6',
+            'phase': 'additional'
+        },
+        '4': {
+            'range': (7, 9),
+            'labels': [7, 8],
+            'description': 'Training with digits 7, 8',
+            'phase': 'additional'
+        },
+        '5': {
             'range': (5, 10),
             'labels': [5, 9],
-            'description': 'Training with digits 5, 9'
+            'description': 'Training with digits 5, 9',
+            'phase': 'additional'
+        }
+    },
+    'phase_requirements': {
+        'initial': {
+            'min_clients': 2,
+            'max_clients': 2
+        },
+        'additional': {
+            'min_clients': 3,
+            'max_clients': 3
         }
     }
 }

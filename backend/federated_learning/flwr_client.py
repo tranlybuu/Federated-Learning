@@ -12,7 +12,7 @@ import os
 
 class MnistClient(fl.client.NumPyClient):
     def __init__(self, cid, mode, x_train, y_train, x_test, y_test):
-        self.cid = cid
+        self.cid = str(cid)
         self.mode = mode
         self.x_train = x_train
         self.y_train = y_train
@@ -31,28 +31,30 @@ class MnistClient(fl.client.NumPyClient):
         return self.model.get_weights()
 
     def fit(self, parameters, config):
-        # Set trọng số nhận được từ server
         self.model.set_weights(parameters)
-        
-        # Train local
+
         history = self.model.fit(
-            self.x_train, 
+            self.x_train,
             self.y_train,
             epochs=config.get('local_epochs', DATA_CONFIG['local_epochs']),
             batch_size=config.get('batch_size', DATA_CONFIG['batch_size']),
             validation_split=config.get('validation_split', DATA_CONFIG['validation_split']),
             verbose=config.get('verbose', 1)
         )
-        
-        # Lưu model sau khi train
+
+        # Save model sau khi train
         save_path = CLIENT_MODEL_TEMPLATE.format(f"{self.mode}_{self.cid}")
         self.model.save(save_path)
         print(f"Saved client model to: {save_path}")
-        
-        return self.model.get_weights(), len(self.x_train), {
+
+        # Thêm client_id vào metrics
+        metrics = {
             "accuracy": history.history['accuracy'][-1],
-            "loss": history.history['loss'][-1]
+            "loss": history.history['loss'][-1],
+            "client_id": self.cid  # Thêm client ID vào metrics
         }
+
+        return self.model.get_weights(), len(self.x_train), metrics
 
     def evaluate(self, parameters, config):
         self.model.set_weights(parameters)
@@ -164,22 +166,32 @@ class TestOnlyClient:
         return evaluation
 
 def load_data(cid, mode):
-    """Load và phân tích dữ liệu MNIST cho client."""
+    """Load và phân tích dữ liệu MNIST cho client.
+    
+    Args:
+        cid: Client ID (1-5)
+        mode: Mode training ('initial' hoặc 'additional')
+    """
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
-   
+
     # Normalize và reshape
     x_train = x_train.reshape(-1, 28, 28, 1) / 255.0
     x_test = x_test.reshape(-1, 28, 28, 1) / 255.0
-   
-    # Lấy data range và labels cho mode và client hiện tại
-    client_info = DATA_RANGES_INFO[mode][str(cid)]
+
+    # Kiểm tra client ID có hợp lệ không
+    str_cid = str(cid)
+    if str_cid not in DATA_RANGES_INFO['client_ranges']:
+        raise ValueError(f"Invalid client ID: {cid}")
+
+    # Lấy thông tin range và labels cho client
+    client_info = DATA_RANGES_INFO['client_ranges'][str_cid]
     allowed_labels = client_info['labels']
-   
+
     # Lọc dữ liệu train theo labels được chỉ định
     train_mask = np.isin(y_train, allowed_labels)
     x_train_filtered = x_train[train_mask]
     y_train_filtered = y_train[train_mask]
-    
+
     # Lọc dữ liệu test theo labels được chỉ định
     test_mask = np.isin(y_test, allowed_labels)
     x_test_filtered = x_test[test_mask]
@@ -190,13 +202,13 @@ def load_data(cid, mode):
     train_distribution = {
         int(label): int(count) for label, count in zip(train_labels, train_counts)
     }
-    
+
     # Tính phân bố cho tập test
     test_labels, test_counts = np.unique(y_test_filtered, return_counts=True)
     test_distribution = {
         int(label): int(count) for label, count in zip(test_labels, test_counts)
     }
-   
+
     # Tạo summary về dữ liệu
     data_summary = {
         'client_id': cid,
@@ -212,13 +224,13 @@ def load_data(cid, mode):
         'allowed_labels': allowed_labels,
         'description': client_info['description']
     }
-   
+
     # Lưu summary
     summary_path = DATA_SUMMARY_TEMPLATE.format(f"{mode}_client_{cid}")
     os.makedirs(os.path.dirname(summary_path), exist_ok=True)
     with open(summary_path, 'w') as f:
         json.dump(data_summary, f, indent=4)
-   
+
     print(f"\nClient {cid} ({mode} mode) initialized:")
     print(f"Labels: {allowed_labels}")
     print("Train data distribution:")
@@ -227,7 +239,7 @@ def load_data(cid, mode):
     print("Test data distribution:")
     for label, count in test_distribution.items():
         print(f"  Label {label}: {count} samples")
-   
+
     return x_train_filtered, y_train_filtered, x_test_filtered, y_test_filtered
 
 def create_client_parser():
