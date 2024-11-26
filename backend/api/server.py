@@ -4,6 +4,7 @@ import numpy as np
 from PIL import Image
 from rembg import remove
 import io
+import json
 from datetime import datetime
 import tensorflow as tf
 import os
@@ -26,7 +27,9 @@ def get_available_models():
             models.append({
                 'name': file,
                 'path': path,
-                'last_modified': datetime.fromtimestamp(os.path.getmtime(path)).strftime('%Y-%m-%d %H:%M:%S')
+                'last_modified': datetime.fromtimestamp(
+                    os.path.getmtime(path)
+                ).strftime('%Y-%m-%d %H:%M:%S')
             })
     return sorted(models, key=lambda x: x['last_modified'], reverse=True)
 
@@ -34,7 +37,7 @@ def load_model_by_name(model_name):
     """Load model theo tên."""
     model_path = os.path.join(MODEL_DIR, model_name)
     if not os.path.exists(model_path):
-        raise ValueError(f"Model {model_name} không tồn tại")
+        raise ValueError(f"Model {model_name} does not exist")
     return tf.keras.models.load_model(model_path)
 
 def get_latest_model_path():
@@ -54,6 +57,41 @@ def get_latest_model_path():
         print(f"Error finding latest model: {e}")
         return INITIAL_MODEL_PATH
 
+def get_dataset_statistics():
+    """Lấy thống kê về tập train và test của từng client."""
+    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+    
+    # Tính toán thống kê cho từng client
+    client_stats = {}
+    
+    # Client 0: digits 0-2
+    train_mask_0 = np.isin(y_train, [0, 1, 2])
+    test_mask_0 = np.isin(y_test, [0, 1, 2])
+    train_labels_0 = y_train[train_mask_0]
+    test_labels_0 = y_test[test_mask_0]
+    
+    client_stats[0] = {
+        'train_samples': len(train_labels_0),
+        'test_samples': len(test_labels_0),
+        'train_distribution': {str(i): int(np.sum(train_labels_0 == i)) for i in [0, 1, 2]},
+        'test_distribution': {str(i): int(np.sum(test_labels_0 == i)) for i in [0, 1, 2]}
+    }
+    
+    # Client 1: digits 3-4
+    train_mask_1 = np.isin(y_train, [3, 4])
+    test_mask_1 = np.isin(y_test, [3, 4])
+    train_labels_1 = y_train[train_mask_1]
+    test_labels_1 = y_test[test_mask_1]
+    
+    client_stats[1] = {
+        'train_samples': len(train_labels_1),
+        'test_samples': len(test_labels_1),
+        'train_distribution': {str(i): int(np.sum(train_labels_1 == i)) for i in [3, 4]},
+        'test_distribution': {str(i): int(np.sum(test_labels_1 == i)) for i in [3, 4]}
+    }
+    
+    return client_stats
+
 def load_or_create_model():
     """Load model đã train hoặc tạo model mới nếu chưa có."""
     try:
@@ -69,8 +107,12 @@ def load_or_create_model():
                 loss='sparse_categorical_crossentropy',
                 metrics=['accuracy']
             )
-            # Lưu model mới
+            # Lưu model mới và thống kê dataset
             model.save(INITIAL_MODEL_PATH)
+            dataset_stats = get_dataset_statistics()
+            stats_path = os.path.join(MODEL_DIR, 'dataset_statistics.json')
+            with open(stats_path, 'w') as f:
+                json.dump(dataset_stats, f, indent=4)
             return model
     except Exception as e:
         print(f"Error loading/creating model: {e}")
@@ -177,10 +219,12 @@ def health_check():
     """Endpoint kiểm tra trạng thái server."""
     try:
         models = get_available_models()
+        dataset_stats = get_dataset_statistics()
         return jsonify({
             'status': 'healthy',
             'available_models': models,
             'total_models': len(models),
+            'dataset_statistics': dataset_stats,
             'server_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         })
     except Exception as e:

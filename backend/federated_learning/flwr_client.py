@@ -11,48 +11,69 @@ from .model import load_model_for_mode
 import os
 
 class MnistClient(fl.client.NumPyClient):
-    def __init__(self, cid, mode, x_train, y_train, x_test, y_test):
-        self.cid = cid
-        self.mode = mode
-        self.x_train = x_train
-        self.y_train = y_train
-        self.x_test = x_test
-        self.y_test = y_test
+    def __init__(self, cid):  # Chỉ cần nhận cid
+        self.cid = str(cid)
         
-        # Load model phù hợp với mode
-        if mode == 'initial':
-            # Với mode initial, load model từ server
-            self.model = tf.keras.models.load_model(INITIAL_MODEL_PATH)
-        else:
-            # Với mode additional, load model cuối cùng từ giai đoạn initial
-            self.model = load_model_for_mode(mode)
+        # Load data cho client
+        self.x_train, self.y_train, self.x_test, self.y_test = load_data(cid)
+
+        # Load model mới nhất từ thư mục models
+        self.model = self._load_latest_model()
+
+    def _load_latest_model(self):
+        """Load model mới nhất hoặc tạo model mới nếu chưa có."""
+        models = [f for f in os.listdir(MODEL_DIR) if f.endswith('.keras')]
+        if not models:
+            # Nếu chưa có model nào, tạo model mới
+            model = tf.keras.Sequential([
+                tf.keras.layers.Input(shape=(28, 28, 1)),
+                tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
+                tf.keras.layers.MaxPooling2D((2, 2)),
+                tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+                tf.keras.layers.MaxPooling2D((2, 2)),
+                tf.keras.layers.Flatten(),
+                tf.keras.layers.Dense(64, activation='relu'),
+                tf.keras.layers.Dense(10, activation='softmax')
+            ])
+            model.compile(
+                optimizer='adam',
+                loss='sparse_categorical_crossentropy',
+                metrics=['accuracy']
+            )
+            return model
+
+        # Load model mới nhất
+        models.sort(key=lambda x: os.path.getmtime(os.path.join(MODEL_DIR, x)))
+        latest_model = os.path.join(MODEL_DIR, models[-1])
+        return tf.keras.models.load_model(latest_model)
 
     def get_parameters(self, config):
         return self.model.get_weights()
 
     def fit(self, parameters, config):
-        # Set trọng số nhận được từ server
         self.model.set_weights(parameters)
-        
-        # Train local
+
         history = self.model.fit(
-            self.x_train, 
+            self.x_train,
             self.y_train,
             epochs=config.get('local_epochs', DATA_CONFIG['local_epochs']),
             batch_size=config.get('batch_size', DATA_CONFIG['batch_size']),
             validation_split=config.get('validation_split', DATA_CONFIG['validation_split']),
             verbose=config.get('verbose', 1)
         )
-        
-        # Lưu model sau khi train
-        save_path = CLIENT_MODEL_TEMPLATE.format(f"{self.mode}_{self.cid}")
+
+        # Save model sau khi train
+        save_path = CLIENT_MODEL_TEMPLATE.format(f"client_{self.cid}")
         self.model.save(save_path)
         print(f"Saved client model to: {save_path}")
-        
-        return self.model.get_weights(), len(self.x_train), {
+
+        metrics = {
             "accuracy": history.history['accuracy'][-1],
-            "loss": history.history['loss'][-1]
+            "loss": history.history['loss'][-1],
+            "client_id": self.cid
         }
+
+        return self.model.get_weights(), len(self.x_train), metrics
 
     def evaluate(self, parameters, config):
         self.model.set_weights(parameters)
@@ -163,51 +184,95 @@ class TestOnlyClient:
 
         return evaluation
 
-def load_data(cid, mode):
+def load_data(cid):
     """Load và phân tích dữ liệu MNIST cho client."""
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
-    
+
     # Normalize và reshape
     x_train = x_train.reshape(-1, 28, 28, 1) / 255.0
     x_test = x_test.reshape(-1, 28, 28, 1) / 255.0
-    
-    # Lấy data range và labels cho mode và client hiện tại
-    client_info = DATA_RANGES_INFO[mode][str(cid)]
-    data_range = client_info['range']
+
+    # Kiểm tra client ID có hợp lệ không
+    str_cid = str(cid)
+    if str_cid not in DATA_RANGES_INFO['client_ranges']:
+        raise ValueError(f"Invalid client ID: {cid}")
+
+    # Lấy thông tin range và labels cho client
+    client_info = DATA_RANGES_INFO['client_ranges'][str_cid]
     allowed_labels = client_info['labels']
-    
-    # Lọc dữ liệu theo labels được chỉ định
-    mask = np.isin(y_train, allowed_labels)
-    x_train_filtered = x_train[mask]
-    y_train_filtered = y_train[mask]
-    
-    # Tạo summary về dữ liệu
-    labels, counts = np.unique(y_train_filtered, return_counts=True)
+
+    # Lọc dữ liệu train theo labels được chỉ định
+    train_mask = np.isin(y_train, allowed_labels)
+    x_train_filtered = x_train[train_mask]
+    y_train_filtered = y_train[train_mask]
+
+    # Lọc dữ liệu test theo labels được chỉ định
+    test_mask = np.isin(y_test, allowed_labels)
+    x_test_filtered = x_test[test_mask]
+    y_test_filtered = y_test[test_mask]
+
+    # Tính phân bố chi tiết cho tập train
+    train_labels, train_counts = np.unique(y_train_filtered, return_counts=True)
+    train_distribution = {
+        int(label): int(count) for label, count in zip(train_labels, train_counts)
+    }
+
+    # Tính phân bố chi tiết cho tập test
+    test_labels, test_counts = np.unique(y_test_filtered, return_counts=True)
+    test_distribution = {
+        int(label): int(count) for label, count in zip(test_labels, test_counts)
+    }
+
+    # Tạo summary chi tiết về dữ liệu
     data_summary = {
         'client_id': cid,
-        'mode': mode,
-        'total_samples': len(y_train_filtered),
-        'labels_distribution': {
-            int(label): int(count) for label, count in zip(labels, counts)
+        'train': {
+            'total_samples': len(y_train_filtered),
+            'samples_per_label': train_distribution,
+            'labels_distribution': {
+                str(label): f"{(count/len(y_train_filtered)*100):.2f}%"
+                for label, count in train_distribution.items()
+            }
+        },
+        'test': {
+            'total_samples': len(y_test_filtered),
+            'samples_per_label': test_distribution,
+            'labels_distribution': {
+                str(label): f"{(count/len(y_test_filtered)*100):.2f}%"
+                for label, count in test_distribution.items()
+            }
         },
         'allowed_labels': allowed_labels,
         'description': client_info['description']
     }
-    
+
     # Lưu summary
-    summary_path = DATA_SUMMARY_TEMPLATE.format(f"{mode}_client_{cid}")
+    summary_path = DATA_SUMMARY_TEMPLATE.format(f"client_{cid}")
     os.makedirs(os.path.dirname(summary_path), exist_ok=True)
     with open(summary_path, 'w') as f:
         json.dump(data_summary, f, indent=4)
-    
-    print(f"\nClient {cid} ({mode} mode) initialized:")
-    print(f"Data range: {data_range}")
-    print(f"Labels: {allowed_labels}")
-    print(f"Samples per label:")
-    for label, count in zip(labels, counts):
-        print(f"  Label {label}: {count} samples")
-    
-    return x_train_filtered, y_train_filtered, x_test, y_test
+
+    # In thông tin chi tiết
+    print(f"\nClient {cid} Dataset Summary:")
+    print("=" * 50)
+    print(f"Description: {client_info['description']}")
+    print(f"Allowed labels: {allowed_labels}")
+    print("\nTraining Data:")
+    print(f"Total samples: {len(y_train_filtered)}")
+    print("Distribution by label:")
+    for label, count in sorted(train_distribution.items()):
+        percentage = (count/len(y_train_filtered)*100)
+        print(f"  Label {label}: {count} samples ({percentage:.2f}%)")
+
+    print("\nTest Data:")
+    print(f"Total samples: {len(y_test_filtered)}")
+    print("Distribution by label:")
+    for label, count in sorted(test_distribution.items()):
+        percentage = (count/len(y_test_filtered)*100)
+        print(f"  Label {label}: {count} samples ({percentage:.2f}%)")
+    print("=" * 50)
+
+    return x_train_filtered, y_train_filtered, x_test_filtered, y_test_filtered
 
 def create_client_parser():
     """Tạo parser với các mô tả chi tiết cho client."""
@@ -238,14 +303,7 @@ Note: Make sure the server is running before starting the client.
         "--cid",
         type=int,
         required=True,
-        help="Client ID (required, must be unique for each client)"
-    )
-    
-    parser.add_argument(
-        "--mode",
-        choices=['initial', 'additional', 'test-only'],
-        required=True,
-        help="Training mode"
+        help="Client ID (required, must be between 1-5)"
     )
 
     # Optional arguments with defaults
@@ -267,7 +325,7 @@ Note: Make sure the server is running before starting the client.
         "--local_epochs",
         type=int,
         default=DATA_CONFIG['local_epochs'],
-        help=f"Number of local training epochs (default: {DATA_CONFIG['local_epochs']})"
+        help=f"Number of local epochs (default: {DATA_CONFIG['local_epochs']})"
     )
 
     # Advanced configuration
@@ -332,21 +390,32 @@ def main():
     parser = create_client_parser()
     args = parser.parse_args()
 
-    # In cấu hình
-    print_client_config(args)
+    # Print configuration
+    print("\nClient Configuration:")
+    print("=" * 50)
+    print(f"Client ID: {args.cid}")
+    print(f"Server Address: {args.server_address}")
+    print(f"Batch Size: {args.batch_size}")
+    print(f"Local Epochs: {args.local_epochs}")
+    print("=" * 50)
 
     try:
-        # Khởi động client
-        start_client(args)
+        # Create and start client - chỉ truyền cid
+        client = MnistClient(args.cid)
+
+        print(f"\nConnecting to server at {args.server_address}...")
+        fl.client.start_client(
+            server_address=args.server_address,
+            client=client.to_client()
+        )
+
     except Exception as e:
-        print(f"\nError starting client: {e}")
+        print(f"\nError: {e}")
         print("\nTroubleshooting tips:")
         print("1. Make sure the server is running")
         print("2. Check if the server address is correct")
-        print("3. Verify that the Client ID is unique")
+        print("3. Verify that your Client ID is valid (1-5)")
         print("4. Ensure you have enough memory for the specified batch size")
-        if args.mode == 'additional':
-            print("5. Verify that initial training has been completed")
         raise
 
 if __name__ == "__main__":
