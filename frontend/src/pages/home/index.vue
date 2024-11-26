@@ -23,14 +23,17 @@
       <hr>
       <h1 class="font-bold text-2xl">Các mô hình đã huấn luyện</h1>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div v-for="model in all_model"  :key="model" class="p-4 rounded-xl bg-red-100">
-          <div  class="flex justify-between align-middle items-center ">
-            <p class="font-bold">Tên mô hình</p>
-            <p>{{ model.name.replace("OvO", " - OneVsOne").replace("OvA", " - OneVsAll") }}</p>
-          </div>
-          <div  class="flex justify-between align-middle items-center ">
-            <p class="font-bold">Độ chính xác</p>
-            <p>{{ model.accuracy }}%</p>
+        <div v-for="model in all_model"  :key="model.path" >
+          <div @click="() => {choosing_model = model.name}" class="p-4 rounded-xl border-[2px] ease-in-out duration-200"
+              :class="[model.name == choosing_model ? 'bg-red-300 border-black' : 'bg-gray-100 border-gray-400']">
+            <div  class="flex justify-between align-middle items-center">
+              <p class="font-bold">Tên mô hình</p>
+              <p>{{ model.name.replace(".keras", "") }}</p>
+            </div>
+            <div  class="flex justify-between align-middle items-center ">
+              <p class="font-bold">Thời gian cập nhật</p>
+              <p>{{ model.last_modified }}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -54,20 +57,26 @@
     <div class="modal" role="dialog">
       <div class="modal-box max-w-fit">
         <div v-if="prediction != null">
-          <div class="flex flex-col md:flex-row gap-4 md:gap-8 w-auto">
-            <div class="flex flex-col gap-4 items-start">
-              <h3 class="text-2xl font-extrabold text-red-900 italic lg:w-max">Thống kê dự đoán của mô hình</h3>
-              <div  class="flex justify-between align-middle items-center gap-4">
-                <p class="font-bold">Tên mô hình</p>
-                <p>{{ prediction.success }}</p>
+          <div v-if="prediction.success == true" class="flex flex-col md:flex-row gap-4 md:gap-8 w-auto">
+            <div class="flex flex-col gap-4 justify-between">
+              <div class="flex flex-col gap-4 items-start">
+                <h3 class="text-2xl font-extrabold text-red-900 italic lg:w-max">Thống kê dự đoán của mô hình</h3>
+                <div  class="flex justify-between align-middle items-center gap-4">
+                  <p class="font-bold">Tên mô hình</p>
+                  <p>{{ prediction.model_info.name }}</p>
+                </div>
+                <div  class="flex justify-between align-middle items-center gap-4">
+                  <p class="font-bold">Mức độ tự tin</p>
+                  <p>{{ prediction.confidence }}%</p>
+                </div>
+                <div  class="flex justify-between align-middle items-center gap-4">
+                  <p class="font-bold">Kết quả dự đoán</p>
+                  <p class="font-semibold">{{ prediction.digit }}</p>
+                </div>
               </div>
               <div  class="flex justify-between align-middle items-center gap-4">
-                <p class="font-bold">Mức độ tự tin</p>
-                <p>{{ prediction.confidence }}%</p>
-              </div>
-              <div  class="flex justify-between align-middle items-center gap-4">
-                <p class="font-bold">Kết quả dự đoán</p>
-                <p class="font-semibold">{{ prediction.digit }}</p>
+                <p class="font-bold">Thời gian dự đoán</p>
+                <p>{{ prediction.prediction_time }}</p>
               </div>
             </div>
             <div class="relative w-full md:max-w-[250px] mx-auto bg-gray-100">
@@ -132,6 +141,17 @@
               </div>
             </div>
           </div>
+          <div v-else class="flex flex-col justify-center items-center mt-4">
+            <div class="flex items-center justify-center">
+              <div class="relative">
+                <div class="h-16 w-16 rounded-full border-t-8 border-b-8 border-gray-200"></div>
+                <div class="absolute top-0 left-0 h-16 w-16 rounded-full border-t-8 border-b-8 border-blue-500 animate-spin">
+                </div>
+              </div>
+            </div>
+            <h3 class="text-2xl font-extrabold text-red-900 italic lg:w-max">Phát hiện lỗi xảy ra</h3>
+            <h1 class="font-bold text-lg">{{ prediction.error }}</h1>
+          </div>
         </div>
         <div v-else class="flex flex-col justify-center items-center mt-4">
           <div class="flex items-center justify-center">
@@ -182,7 +202,9 @@ export default {
         "training_sample": ""
       },
       "all_model": [],
-      "isLoading": true
+      "choosing_model": "",
+      "isLoading": true,
+      "qr_image": ""
     }
   },
   methods: {
@@ -191,6 +213,9 @@ export default {
       const modal = document.getElementById('my_modal')
       modal.click()
       axios.post(api_url + "recognize", imageUrl, {
+        params: {
+          model: this.choosing_model,
+        },
         headers: {
           'Content-Type': 'image/png'
         },
@@ -200,7 +225,7 @@ export default {
           this.prediction =  response.data
         })
         .catch(error => {
-          console.error(error);
+          console.log("ERROR =>", error)
         });
     },
     get_overall_info() {
@@ -213,9 +238,10 @@ export default {
         });
     },
     get_all_model() {
-      axios.get(api_url + "model", {timeout: 60000})
+      axios.get(api_url + "health", {timeout: 60000})
         .then(response => {
-          this.all_model = response.data.entries
+          this.all_model = response.data.available_models
+          this.choosing_model = this.all_model[0].name
         })
         .catch(error => {
           console.error(error);
@@ -229,11 +255,49 @@ export default {
         .catch(error => {
           console.error(error);
         });
+    },
+    get_local_ip() {
+      // Lấy thông tin từ location hiện tại
+      const protocol = window.location.protocol
+      const hostname = window.location.hostname
+      const port = window.location.port
+
+      // Set local URL
+      this.localURL = `${protocol}//${hostname}:${port}`
+      
+      const pc = new RTCPeerConnection({ iceServers: [] })
+      const ipRegex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/
+
+      pc.createDataChannel('')
+      pc.createOffer()
+        .then(offer => pc.setLocalDescription(offer))
+        .catch(err => {
+          this.error = err.message
+          this.isLoading = false
+        })
+
+      pc.onicecandidate = (event) => {
+        if (!event.candidate) return
+
+        // Tìm địa chỉ IP local trong ICE candidate
+        const matches = event.candidate.candidate.match(ipRegex)
+        if (!matches) return
+
+        const ipAddress = matches[1]
+        
+        // Chỉ lấy địa chỉ IP local (192.168.x.x)
+        if (ipAddress.startsWith('192.168.')) {
+          const resule = `${protocol}//${ipAddress}:${port}`
+          console.log("\n\n========> ", resule)
+          pc.close()
+        }
+      }
     }
   },
   async created() {
+    this.get_local_ip()
     await this.get_overall_info()
-    // await this.get_all_model()
+    await this.get_all_model()
     // this.get_non_label_dataset()
     this.isLoading = false
   }
