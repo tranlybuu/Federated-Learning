@@ -10,7 +10,7 @@
               </div>
             </div>
 
-            <p class="font-bold text-xl">Trần Lý Bửu /tranlybuu</p>
+            <p class="font-bold text-xl">Học liên kết & Ứng dụng</p>
           </div>
         </div>
       

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import axios from 'axios';
 
-const api_url = "http://localhost:8000/api/"
+const api_url = "http://localhost:5000"
 
 export const useExampleStore = defineStore('example', {
     state: () => ({ 
@@ -21,13 +21,22 @@ export const useExampleStore = defineStore('example', {
         //     this.count = 0
         // },
         get_overall_info() {
-            axios.get(api_url + "info")
+            axios.get(api_url + "/health")
               .then(response => {
                 return response
               })
               .catch(error => {
                 console.error(error);
               });
-        }        
+        },
+        prediction() {
+          axios.get(api_url + "/health")
+            .then(response => {
+              return response
+            })
+            .catch(error => {
+              console.error(error);
+            });
+      }        
     },
 })
