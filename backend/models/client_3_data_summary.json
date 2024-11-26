@@ -1,0 +1,30 @@
+{
+    "client_id": 3,
+    "train": {
+        "total_samples": 11339,
+        "samples_per_label": {
+            "5": 5421,
+            "6": 5918
+        },
+        "labels_distribution": {
+            "5": "47.81%",
+            "6": "52.19%"
+        }
+    },
+    "test": {
+        "total_samples": 1850,
+        "samples_per_label": {
+            "5": 892,
+            "6": 958
+        },
+        "labels_distribution": {
+            "5": "48.22%",
+            "6": "51.78%"
+        }
+    },
+    "allowed_labels": [
+        5,
+        6
+    ],
+    "description": "Training with digits 5, 6"
+}

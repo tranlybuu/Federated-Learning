@@ -37,7 +37,7 @@ def load_model_by_name(model_name):
     """Load model theo tên."""
     model_path = os.path.join(MODEL_DIR, model_name)
     if not os.path.exists(model_path):
-        raise ValueError(f"Model {model_name} không tồn tại")
+        raise ValueError(f"Model {model_name} does not exist")
     return tf.keras.models.load_model(model_path)
 
 def get_latest_model_path():

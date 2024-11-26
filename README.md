@@ -193,10 +193,7 @@ curl.exe -X POST -F "image=@digit.png" http://localhost:5000/recognize
 curl.exe http://localhost:5000/models
 
 # 2. Predict với model cụ thể:
-curl.exe -X POST -H "Content-Type: multipart/form-data" --data-binary "@backend/mnist_samples/sample_8_label_1.png" "http://localhost:5000/recognize?model=initial_model.keras"
-
-# 3. Predict với model khác:
-curl.exe -X POST -H "Content-Type: multipart/form-data" --data-binary "@backend/mnist_samples/sample_8_label_1.png" "http://localhost:5000/recognize?model=global_model_round_3.keras"
+curl.exe -X POST -H "Content-Type: multipart/form-data" --data-binary "@backend/mnist_samples/9a.png" "http://localhost:5000/recognize?model=best_additional_model.keras"
 
 # 4. Kiểm tra health và xem danh sách models:
 curl.exe http://localhost:5000/health

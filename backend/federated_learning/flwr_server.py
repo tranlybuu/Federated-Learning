@@ -5,6 +5,7 @@ from ..utils.config import (
     FL_CONFIG, MODEL_DIR, TRAINING_CONFIG, DATA_SUMMARY_TEMPLATE,
     INITIAL_MODEL_PATH, MODEL_TEMPLATES, DATA_RANGES_INFO
 )
+from datetime import datetime
 import os
 import json
 import numpy as np
@@ -138,6 +139,7 @@ class FederatedServer(fl.server.strategy.FedAvg):
 
     def _save_final_results(self):
         """Save final results and training history."""
+        # Create results directory if it doesn't exist
         results_dir = os.path.join(MODEL_DIR, 'results')
         os.makedirs(results_dir, exist_ok=True)
 
@@ -148,22 +150,29 @@ class FederatedServer(fl.server.strategy.FedAvg):
         test_distribution = {}
 
         for numeric_cid in self.active_clients:
-            summary_path = DATA_SUMMARY_TEMPLATE.format(f"{self.mode}_client_{numeric_cid}")
+            summary_path = DATA_SUMMARY_TEMPLATE.format(f"client_{numeric_cid}")
             if os.path.exists(summary_path):
                 with open(summary_path, 'r') as f:
                     client_summary = json.load(f)
-                
+                    
                 data_summaries.append(client_summary)
                 
-                total_train_samples += client_summary['train']['total_samples']
-                total_test_samples += client_summary['test']['total_samples']
-
-                for label, count in client_summary['train']['labels_distribution'].items():
+                # Cộng dồn số lượng mẫu từ train
+                train_info = client_summary['train']
+                total_train_samples += train_info['total_samples']
+                
+                # Cộng dồn phân bố từ samples_per_label
+                for label, count in train_info['samples_per_label'].items():
                     if label not in train_distribution:
                         train_distribution[label] = 0
                     train_distribution[label] += count
 
-                for label, count in client_summary['test']['labels_distribution'].items():
+                # Cộng dồn số lượng mẫu từ test
+                test_info = client_summary['test']
+                total_test_samples += test_info['total_samples']
+                
+                # Cộng dồn phân bố từ samples_per_label
+                for label, count in test_info['samples_per_label'].items():
                     if label not in test_distribution:
                         test_distribution[label] = 0
                     test_distribution[label] += count
@@ -174,35 +183,52 @@ class FederatedServer(fl.server.strategy.FedAvg):
             if numeric_cid in DATA_RANGES_INFO['client_ranges']:
                 active_client_ranges[numeric_cid] = DATA_RANGES_INFO['client_ranges'][numeric_cid]
 
-        # Create final results
+        # Tạo tổng hợp kết quả cuối cùng
         final_results = {
-            'mode': self.mode,
-            'round_results': self.round_results,
-            'best_accuracy': float(self.best_accuracy),
-            'total_rounds': self.current_round,
-            'final_accuracy': float(self.round_results[-1]['accuracy']),
-            'final_loss': float(self.round_results[-1]['loss']),
-            'data_summary': {
-                'train': {
-                    'total_samples': total_train_samples,
-                    'labels_distribution': train_distribution
-                },
-                'test': {
-                    'total_samples': total_test_samples,
-                    'labels_distribution': test_distribution
-                },
-                'clients_data': data_summaries,
-                'active_clients': list(self.active_clients),
+            'training_info': {
+                'mode': self.mode,
+                'total_rounds': self.current_round,
+                'best_accuracy': float(self.best_accuracy),
+                'final_accuracy': float(self.round_results[-1]['accuracy']),
+                'final_loss': float(self.round_results[-1]['loss']),
+                'training_history': self.round_results
+            },
+            'active_clients_info': {
+                'count': len(self.active_clients),
+                'client_ids': list(self.active_clients),
                 'client_ranges': active_client_ranges,
                 'phase_requirements': DATA_RANGES_INFO['phase_requirements'][self.mode]
-            }
+            },
+            'dataset_statistics': {
+                'overall': {
+                    'train': {
+                        'total_samples': total_train_samples,
+                        'samples_per_label': train_distribution,
+                        'labels_distribution': {
+                            str(label): f"{(count/total_train_samples*100):.2f}%"
+                            for label, count in train_distribution.items()
+                        }
+                    },
+                    'test': {
+                        'total_samples': total_test_samples,
+                        'samples_per_label': test_distribution,
+                        'labels_distribution': {
+                            str(label): f"{(count/total_test_samples*100):.2f}%"
+                            for label, count in test_distribution.items()
+                        }
+                    }
+                },
+                'per_client': data_summaries
+            },
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
 
+        # Lưu kết quả vào một file duy nhất
         results_path = os.path.join(results_dir, f'best_{self.mode}_model.json')
         with open(results_path, 'w') as f:
             json.dump(final_results, f, indent=4)
 
-        # Print summary
+        # In tổng kết
         print(f"\nTraining Summary ({self.mode} mode):")
         print("=" * 50)
         print(f"Total Rounds: {self.current_round}")
@@ -210,20 +236,21 @@ class FederatedServer(fl.server.strategy.FedAvg):
         print(f"Final Accuracy: {self.round_results[-1]['accuracy']:.4f}")
         print(f"Final Loss: {self.round_results[-1]['loss']:.4f}")
         print(f"Active Clients: {sorted(list(self.active_clients))}")
-        print("\nData Summary:")
+        print("\nDataset Statistics:")
         print("Training Data:")
         print(f"Total Samples: {total_train_samples}")
         print("Labels Distribution:")
         for label, count in sorted(train_distribution.items()):
-            print(f"  Label {label}: {count} samples ({count/total_train_samples*100:.2f}%)")
+            percentage = count/total_train_samples*100
+            print(f"  Label {label}: {count} samples ({percentage:.2f}%)")
         print("\nTest Data:")
         print(f"Total Samples: {total_test_samples}")
         print("Labels Distribution:")
         for label, count in sorted(test_distribution.items()):
-            print(f"  Label {label}: {count} samples ({count/total_test_samples*100:.2f}%)")
+            percentage = count/total_test_samples*100
+            print(f"  Label {label}: {count} samples ({percentage:.2f}%)")
         print("=" * 50)
         print(f"Results saved to: {results_path}")
-
     def get_model_parameters(self):
         """Get current model parameters."""
         return self.model.get_weights()
