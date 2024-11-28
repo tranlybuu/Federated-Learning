@@ -247,6 +247,64 @@ def health_check():
             'status': 'unhealthy',
             'error': str(e)
         }), 500
+    
+@app.route('/model-stats/<model_name>', methods=['GET'])
+def get_stats(model_name):
+    """API endpoint để lấy thống kê model."""
+    json_name = model_name.replace('.keras', '.json')
+    json_path = os.path.join(MODEL_DIR, "results", json_name)
+    
+    # Check if file exists using os.path.exists instead of .exists()
+    if not os.path.exists(json_path):
+        return jsonify({
+            'error': 'Model statistics not found',
+            'status': f'No statistics found for model: {model_name}'
+        }), 404
+        
+    # Read and parse JSON file
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+    
+    # Extract required statistics
+    training_info = data['training_info']
+    dataset_stats = data['dataset_statistics']
+    active_clients = data['active_clients_info']
+    
+    # Compile client labels
+    client_labels = []
+    for _, client_info in active_clients['client_ranges'].items():
+        client_labels = client_labels + client_info['labels']
+    client_labels = list(dict.fromkeys(client_labels))
+    
+    # Calculate accuracy per round
+    accuracy_per_round = [
+        {
+            'round': round['round'],
+            'accuracy': round['accuracy'] * 100,  # Convert to percentage
+            'client_accuracies': {
+                client['client_id']: client['accuracy'] * 100
+                for client in round['client_metrics']
+            }
+        }
+        for round in training_info['training_history']
+    ]
+    
+    # Compile statistics
+    return jsonify({
+        'model_name': model_name,
+        'total_rounds': training_info['total_rounds'],
+        'final_metrics': {
+            'accuracy': training_info['final_accuracy'] * 100,  # Convert to percentage
+            'loss': training_info['final_loss']
+        },
+        'client_labels': client_labels,
+        'dataset_size': {
+            'train': dataset_stats['overall']['train']['total_samples'],
+            'test': dataset_stats['overall']['test']['total_samples']
+        },
+        'accuracy_history': accuracy_per_round,
+        'timestamp': data["timestamp"],
+    })
 
 if __name__ == '__main__':
     app.run(
