@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import numpy as np
 from PIL import Image
@@ -11,7 +11,8 @@ import os
 import requests
 from ..utils.config import (
     INITIAL_MODEL_PATH, MODEL_DIR,
-    API_CONFIG, MODEL_TEMPLATES
+    API_CONFIG, MODEL_TEMPLATES,
+    INTERFACE_DIR
 )
 from ..federated_learning.model import create_model
 
@@ -280,9 +281,9 @@ def get_stats(model_name):
     accuracy_per_round = [
         {
             'round': round['round'],
-            'accuracy': round['accuracy'] * 100,  # Convert to percentage
+            'accuracy': round['accuracy'],  # Convert to percentage
             'client_accuracies': {
-                client['client_id']: client['accuracy'] * 100
+                client['client_id']: client['accuracy']
                 for client in round['client_metrics']
             }
         }
@@ -294,7 +295,7 @@ def get_stats(model_name):
         'model_name': model_name,
         'total_rounds': training_info['total_rounds'],
         'final_metrics': {
-            'accuracy': training_info['final_accuracy'] * 100,  # Convert to percentage
+            'accuracy': training_info['final_accuracy'],  # Convert to percentage
             'loss': training_info['final_loss']
         },
         'client_labels': client_labels,
@@ -305,6 +306,14 @@ def get_stats(model_name):
         'accuracy_history': accuracy_per_round,
         'timestamp': data["timestamp"],
     })
+
+@app.route('/')
+def serve_vue_app():
+    return send_from_directory(INTERFACE_DIR, 'index.html')
+
+@app.route('/<path:path>')
+def send_js(path):
+    return send_from_directory(INTERFACE_DIR, path)
 
 if __name__ == '__main__':
     app.run(

@@ -1,30 +1,39 @@
 <template>
-  <div class="mx-auto container py-4 grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-2 lg:gap-5 h-max" v-if="!isLoading">
-    <div class="flex flex-col gap-6 lg:col-span-2">
+  <div class="mx-auto container py-4 grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-2 lg:gap-3 h-max" v-if="!isLoading">
+    <div class="flex flex-col gap-4 lg:col-span-2">
       <h1 class="font-bold text-2xl">Tổng quan Dataset</h1>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="flex justify-between align-middle items-center p-4 rounded-xl bg-gray-200">
+        <div class="flex justify-between align-middle items-center p-4 rounded-xl bg-gray-200 shadow-sm shadow-gray-400">
           <p class="font-bold">Số lượng đặc trưng</p>
-          <p>{{ overall_info.number_of_feature }}</p>
+          <p>28 x 28 = <b>784</b></p>
         </div>
-        <div class="flex justify-between align-middle items-center p-4 rounded-xl bg-gray-200">
+        <div class="flex justify-between align-middle items-center p-4 rounded-xl bg-gray-200 shadow-sm shadow-gray-400">
+          <p class="font-bold">Dữ liệu phân loại</p>
+          <p><b>{{ overall_info.client_labels.length }} lớp</b> [{{ overall_info.client_labels.sort().join(', ') }}]</p>
+        </div>
+        <div class="flex justify-between align-middle items-center p-4 rounded-xl bg-gray-200 shadow-sm shadow-gray-400">
           <p class="font-bold">Tổng số dữ liệu</p>
-          <p>{{ overall_info.number_of_sample }}</p>
+          <p>{{ overall_info.dataset_size.train + overall_info.dataset_size.test }}</p>
         </div>
-        <div class="flex justify-between align-middle items-center p-4 rounded-xl bg-gray-200">
+        <div class="flex justify-between align-middle items-center p-4 rounded-xl bg-gray-200 shadow-sm shadow-gray-400">
           <p class="font-bold">Số lượng dữ liệu huấn luyện</p>
-          <p>{{ overall_info.training_sample }}</p>
+          <p>{{ overall_info.dataset_size.train }}</p>
         </div>
-        <div class="flex justify-between align-middle items-center p-4 rounded-xl bg-gray-200">
+        <div class="flex justify-between align-middle items-center p-4 rounded-xl bg-gray-200 shadow-sm shadow-gray-400">
           <p class="font-bold">Số lượng dữ liệu kiểm thử</p>
-          <p>{{ overall_info.testing_sample }}</p>
+          <p>{{ overall_info.dataset_size.test }}</p>
+        </div>
+        <div class="flex justify-between align-middle items-center p-4 rounded-xl bg-gray-200 shadow-sm shadow-gray-400">
+          <p class="font-bold">Số lượng vòng huấn luyện</p>
+          <p>{{ overall_info.total_rounds }}</p>
         </div>
       </div>
+      <AccuracyChart :accuracyHistory="overall_info.accuracy_history" />
       <hr>
       <h1 class="font-bold text-2xl">Các mô hình đã huấn luyện</h1>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div v-for="model in all_model"  :key="model.path" >
-          <div @click="() => {choosing_model = model.name}" class="p-4 rounded-xl border-[2px] ease-in-out duration-200"
+          <div @click="change_current_model(model.name)" class="p-4 rounded-xl border-[2px] ease-in-out duration-200"
               :class="[model.name == choosing_model ? 'bg-red-300 border-black' : 'bg-gray-100 border-gray-400']">
             <div  class="flex justify-between align-middle items-center">
               <p class="font-bold">Tên mô hình</p>
@@ -179,13 +188,12 @@
 <script>
 import { useExampleStore } from '@/stores/examStore'
 import DrawComponent  from '@/pages/home/DrawComponent.vue'
+import AccuracyChart  from '@/pages/home/AccuracyChart.vue'
 import axios from 'axios';
-
-const api_url = "http://localhost:5000/"
 
 export default {
   name: "home-page",
-  components: {DrawComponent},
+  components: {DrawComponent, AccuracyChart},
   setup() {
     const store = useExampleStore()
     return {
@@ -194,13 +202,9 @@ export default {
   },
   data(){
     return {
+      "api_url": "http://localhost:5000/",
       "prediction": null,
-      "overall_info": {
-        "number_of_feature": "",
-        "number_of_sample": "",
-        "testing_sample": "",
-        "training_sample": ""
-      },
+      "overall_info": {},
       "all_model": [],
       "choosing_model": "",
       "isLoading": true,
@@ -212,7 +216,7 @@ export default {
       this.prediction =  null
       const modal = document.getElementById('my_modal')
       modal.click()
-      axios.post(api_url + "recognize", imageUrl, {
+      axios.post(this.api_url + "recognize", imageUrl, {
         params: {
           model: this.choosing_model,
         },
@@ -228,8 +232,8 @@ export default {
           console.log("ERROR =>", error)
         });
     },
-    get_overall_info() {
-      axios.get(api_url + "health", {timeout: 60000})
+    async get_overall_info() {
+      await axios.get(this.api_url + "model-stats/" + this.choosing_model, {timeout: 60000})
         .then(response => {
           this.overall_info = response.data
         })
@@ -237,18 +241,28 @@ export default {
           console.error(error);
         });
     },
-    get_all_model() {
-      axios.get(api_url + "health", {timeout: 60000})
+    async get_all_model() {
+      await axios.get(this.api_url + "health", {timeout: 60000})
         .then(response => {
-          this.all_model = response.data.available_models
-          this.choosing_model = this.all_model[0].name
+          this.all_model = []
+          for (let index in response.data.available_models) {
+            let model = response.data.available_models[index]
+            if (model.name.includes("best_") || model.name.includes("initial")) {
+              this.all_model.push(model)
+            }
+          }
+          this.choosing_model = this.all_model[0]?.name ? this.all_model[0].name : ""
         })
         .catch(error => {
           console.error(error);
         });
     },
+    change_current_model(name) {
+      this.choosing_model = name
+      this.get_overall_info()
+    },
     get_non_label_dataset() {
-      axios.get(api_url + "raw-data", {timeout: 60000})
+      axios.get(this.api_url + "raw-data", {timeout: 60000})
         .then(response => {
           this.non_label_dataset = response.data.entries
         })
@@ -256,48 +270,11 @@ export default {
           console.error(error);
         });
     },
-    get_local_ip() {
-      // Lấy thông tin từ location hiện tại
-      const protocol = window.location.protocol
-      const hostname = window.location.hostname
-      const port = window.location.port
-
-      // Set local URL
-      this.localURL = `${protocol}//${hostname}:${port}`
-      
-      const pc = new RTCPeerConnection({ iceServers: [] })
-      const ipRegex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/
-
-      pc.createDataChannel('')
-      pc.createOffer()
-        .then(offer => pc.setLocalDescription(offer))
-        .catch(err => {
-          this.error = err.message
-          this.isLoading = false
-        })
-
-      pc.onicecandidate = (event) => {
-        if (!event.candidate) return
-
-        // Tìm địa chỉ IP local trong ICE candidate
-        const matches = event.candidate.candidate.match(ipRegex)
-        if (!matches) return
-
-        const ipAddress = matches[1]
-        
-        // Chỉ lấy địa chỉ IP local (192.168.x.x)
-        if (ipAddress.startsWith('192.168.')) {
-          const resule = `${protocol}//${ipAddress}:${port}`
-          console.log("\n\n========> ", resule)
-          pc.close()
-        }
-      }
-    }
   },
   async created() {
-    this.get_local_ip()
-    await this.get_overall_info()
+    this.api_url = window.location
     await this.get_all_model()
+    await this.get_overall_info()
     // this.get_non_label_dataset()
     this.isLoading = false
   }

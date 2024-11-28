@@ -2,6 +2,7 @@ import os
 
 # Đường dẫn cơ bản
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+INTERFACE_DIR = os.path.join(BASE_DIR, 'view')
 
 # Thư mục models và đường dẫn
 MODEL_DIR = os.path.join(BASE_DIR, 'models')
