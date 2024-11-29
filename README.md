@@ -91,6 +91,20 @@ Toàn bộ cấu hình được tập trung trong `utils/config.py`:
 - `DATA_CONFIG`: Cấu hình dữ liệu và training
 - `API_CONFIG`: Cấu hình API server
 
+## Chạy dự án với Docker
+
+Yêu cầu: Cài đặt docker
+
+Tạo Docker Image:
+```bash
+docker build -t federated-learning-mnist:latest .
+```
+
+Chạy dự án:
+```bash
+docker run -p 8000:5000 federated-learning-mnist:latest
+```
+
 ## Sử dụng
 
 ### 1. Initial Training Phase (Giai đoạn Training Ban đầu)
