@@ -1,9 +1,22 @@
-FROM python:3.11.9-alpine
+FROM python:3.11.9
+
 RUN pip install --upgrade pip
-COPY ./backend /app
-COPY ./requirements.txt /app/requirements.txt
-WORKDIR /app
-RUN pip install -r requirements.txt
-EXPOSE 8080
-ENTRYPOINT ["python"]
-CMD ["-m", "backend.main", "--mode", "api"]
+
+WORKDIR /usr/src/app
+
+RUN pip install Flask
+RUN pip install tensorflow
+RUN pip install flask_cors
+RUN pip install flwr
+RUN pip install numpy
+RUN pip install Pillow
+RUN pip install typer
+RUN pip install protobuf
+RUN pip install rembg
+RUN pip install Requests
+RUN pip install onnxruntime
+
+COPY ./backend ./backend
+
+EXPOSE 5000
+CMD ["python", "-m", "backend.main", "--mode", "api"]
