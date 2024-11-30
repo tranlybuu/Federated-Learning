@@ -2,13 +2,16 @@ import flwr as fl
 import tensorflow as tf
 from .model import create_model, load_model_for_mode, save_model
 from ..utils.config import (
-    FL_CONFIG, MODEL_DIR, TRAINING_CONFIG, DATA_SUMMARY_TEMPLATE,
-    INITIAL_MODEL_PATH, MODEL_TEMPLATES, DATA_RANGES_INFO
+    FL_CONFIG, MODEL_DIR, DATA_CONFIG, DATA_SUMMARY_TEMPLATE,
+    INITIAL_MODEL_PATH, MODEL_TEMPLATES, DATA_RANGES_INFO, PRIVACY_CONFIG
 )
+from .privacy.privacy_metrics import PrivacyMetrics
+from .privacy.secure_aggregation import SecureAggregation
 from datetime import datetime
 import os
 import json
 import numpy as np
+import base64
 
 class FederatedServer(fl.server.strategy.FedAvg):
     def __init__(self, mode='initial', *args, **kwargs):
@@ -20,7 +23,14 @@ class FederatedServer(fl.server.strategy.FedAvg):
         self.active_clients = set()
         self.client_id_map = {}  # Theo dõi clients đang tham gia
         
-        # Khởi tạo hoặc load model dựa trên mode
+        # Thêm privacy components
+        self.privacy_metrics = PrivacyMetrics() if PRIVACY_CONFIG['differential_privacy']['monitoring']['log_privacy_metrics'] else None
+        if PRIVACY_CONFIG['secure_aggregation']['enabled']:
+            self.secure_agg = SecureAggregation(
+                num_clients=DATA_CONFIG['num_clients'][mode]
+            )
+        
+        # Khởi tạo hoặc load model như cũ
         if mode == 'initial':
             self.model = create_model()
             self.model.compile(
@@ -28,7 +38,6 @@ class FederatedServer(fl.server.strategy.FedAvg):
                 loss='sparse_categorical_crossentropy',
                 metrics=['accuracy']
             )
-            # Lưu model ban đầu
             model_path = MODEL_TEMPLATES['initial']
             os.makedirs(os.path.dirname(model_path), exist_ok=True)
             self.model.save(model_path)
@@ -41,7 +50,7 @@ class FederatedServer(fl.server.strategy.FedAvg):
         print(f"\nInitializing server in {mode} mode")
 
     def aggregate_fit(self, server_round, results, failures):
-        """Tổng hợp kết quả training từ clients."""
+        """Tổng hợp kết quả training từ clients với các cải tiến."""
         self.current_round = server_round
 
         print(f"\nRound {server_round} ({self.mode} mode):")
@@ -62,6 +71,7 @@ class FederatedServer(fl.server.strategy.FedAvg):
                 f"Phase {self.mode} requires minimum {phase_reqs['min_clients']} clients, "
                 f"but only {len(self.active_clients)} are active"
             )
+
         if len(self.active_clients) > phase_reqs['max_clients']:
             raise ValueError(
                 f"Phase {self.mode} allows maximum {phase_reqs['max_clients']} clients, "
@@ -71,27 +81,55 @@ class FederatedServer(fl.server.strategy.FedAvg):
         if not results:
             return None, {}
 
-        # Collect training results
-        weights = []
+        # Collect training results với performance metrics
+        client_weights = []
+        client_performances = []
         num_examples = []
         metrics = []
 
         for client_proxy, fit_res in results:
-            client_weights = fl.common.parameters_to_ndarrays(fit_res.parameters)
-            weights.append(client_weights)
+            weights = fl.common.parameters_to_ndarrays(fit_res.parameters)
+            
+            # Unmask weights nếu dùng secure aggregation
+            if hasattr(self, 'secure_agg'):
+                encoded_masks = json.loads(fit_res.metrics.get('masks', '[]'))
+                masks = [base64.b64decode(m) for m in encoded_masks]
+                weights = self.secure_agg.unmask_weights(weights, masks)
+                
+            client_weights.append(weights)
+            client_performances.append(fit_res.metrics['accuracy'])
             num_examples.append(fit_res.num_examples)
             metrics.append(fit_res.metrics)
+            
             numeric_cid = self.client_id_map.get(client_proxy.cid, 'unknown')
             print(f"Client {numeric_cid} metrics: {fit_res.metrics}")
 
+        # Tính performance-weighted aggregation
         total_examples = sum(num_examples)
-        if total_examples == 0:
-            return None, {}
+        total_performance = sum(client_performances)
 
-        # Aggregate weights using weighted average
+        # Kết hợp trọng số số lượng mẫu và performance
+        combined_weights = []
+        alpha = 0.3  # Có thể điều chỉnh tỷ lệ này
+        
+        for n, p in zip(num_examples, client_performances):
+            sample_weight = n / total_examples
+            perf_weight = p / total_performance
+            combined_weight = alpha * sample_weight + (1-alpha) * perf_weight
+            combined_weights.append(combined_weight)
+
+        # Chuẩn hóa trọng số
+        sum_weights = sum(combined_weights)
+        combined_weights = [w/sum_weights for w in combined_weights]
+
+        # Aggregate weights với momentum
+        if not hasattr(self, 'velocity'):
+            self.velocity = None
+            self.momentum = 0.9
+
         weighted_weights = [
-            np.sum([w[i] * n for w, n in zip(weights, num_examples)], axis=0) / total_examples
-            for i in range(len(weights[0]))
+            np.sum([cw[i] * w for cw, w in zip(client_weights, combined_weights)], axis=0)
+            for i in range(len(client_weights[0]))
         ]
 
         # Update model and evaluate
@@ -106,7 +144,8 @@ class FederatedServer(fl.server.strategy.FedAvg):
             'loss': float(test_loss),
             'accuracy': float(test_accuracy),
             'num_clients': len(results),
-            'client_metrics': metrics
+            'client_metrics': metrics,
+            'client_weights': combined_weights  # Lưu trọng số đã sử dụng
         }
 
         self.round_results.append(round_metrics)

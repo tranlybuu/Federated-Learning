@@ -122,7 +122,7 @@ Cách thực hiện:
 
 1. Khởi động server:
 ```bash
-python -m backend.main --mode initial --server
+python -m backend.main --server --mode initial 
 ```
 
 2. Trong terminal mới, khởi động Client 1:

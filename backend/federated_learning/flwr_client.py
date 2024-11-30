@@ -4,21 +4,38 @@ import numpy as np
 import json
 import argparse
 from ..utils.config import (
-    TRAINING_CONFIG, DATA_CONFIG, DATA_RANGES_INFO, DATA_SUMMARY_TEMPLATE,
-    INITIAL_MODEL_PATH, CLIENT_MODEL_TEMPLATE, TEST_CONFIG, MODEL_DIR
+    MODEL_CONFIG, DATA_CONFIG, DATA_RANGES_INFO, DATA_SUMMARY_TEMPLATE,
+    INITIAL_MODEL_PATH, CLIENT_MODEL_TEMPLATE, TEST_CONFIG, MODEL_DIR, PRIVACY_CONFIG
 )
-from .model import load_model_for_mode
+from .privacy.secure_aggregation import SecureAggregation
+from .privacy.differential_privacy import DPFederatedLearning
+from .privacy.privacy_metrics import PrivacyMetrics
 import os
+import base64
 
 class MnistClient(fl.client.NumPyClient):
-    def __init__(self, cid):  # Chỉ cần nhận cid
+    def __init__(self, cid):
         self.cid = str(cid)
         
         # Load data cho client
         self.x_train, self.y_train, self.x_test, self.y_test = load_data(cid)
-
+        
         # Load model mới nhất từ thư mục models
         self.model = self._load_latest_model()
+
+        # Initialize privacy components if enabled
+        if PRIVACY_CONFIG['secure_aggregation']['enabled']:
+            total_clients = PRIVACY_CONFIG['secure_aggregation']['min_clients_per_round']
+            self.secure_agg = SecureAggregation(num_clients=total_clients)
+            self.client_keys = self.secure_agg.generate_client_keys(int(cid))
+
+        if PRIVACY_CONFIG['differential_privacy']['enabled']:
+            self.dp_federated = DPFederatedLearning(
+                l2_norm_clip=PRIVACY_CONFIG['differential_privacy']['l2_norm_clip'],
+                noise_multiplier=PRIVACY_CONFIG['differential_privacy']['noise_multiplier'],
+                num_microbatches=PRIVACY_CONFIG['differential_privacy']['num_microbatches']
+            )
+
 
     def _load_latest_model(self):
         """Load model mới nhất hoặc tạo model mới nếu chưa có."""
@@ -29,14 +46,23 @@ class MnistClient(fl.client.NumPyClient):
                 tf.keras.layers.Input(shape=(28, 28, 1)),
                 tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
                 tf.keras.layers.MaxPooling2D((2, 2)),
-                tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+                tf.keras.layers.Conv2D(64, (3, 3), activation='relu'), 
                 tf.keras.layers.MaxPooling2D((2, 2)),
                 tf.keras.layers.Flatten(),
                 tf.keras.layers.Dense(64, activation='relu'),
                 tf.keras.layers.Dense(10, activation='softmax')
             ])
+
+            # Compile với learning rate mới
+            optimizer = tf.keras.optimizers.Adam(
+                learning_rate=MODEL_CONFIG['compile_options']['optimizer_config']['learning_rate'],
+                beta_1=MODEL_CONFIG['compile_options']['optimizer_config']['beta_1'],
+                beta_2=MODEL_CONFIG['compile_options']['optimizer_config']['beta_2'],
+                epsilon=MODEL_CONFIG['compile_options']['optimizer_config']['epsilon']
+            )
+
             model.compile(
-                optimizer='adam',
+                optimizer=optimizer,
                 loss='sparse_categorical_crossentropy',
                 metrics=['accuracy']
             )
@@ -51,29 +77,73 @@ class MnistClient(fl.client.NumPyClient):
         return self.model.get_weights()
 
     def fit(self, parameters, config):
+        # Set model parameters 
         self.model.set_weights(parameters)
+        
+        # Apply DP if enabled
+        if hasattr(self, 'dp_federated'):
+            model = self.dp_federated.create_dp_model(
+                self.model,
+                learning_rate=MODEL_CONFIG['compile_options']['optimizer_config']['learning_rate']
+            )
+        else:
+            model = self.model
 
-        history = self.model.fit(
+        # Train model
+        history = model.fit(
             self.x_train,
             self.y_train,
-            epochs=config.get('local_epochs', DATA_CONFIG['local_epochs']),
+            epochs=DATA_CONFIG['local_epochs'],
             batch_size=config.get('batch_size', DATA_CONFIG['batch_size']),
             validation_split=config.get('validation_split', DATA_CONFIG['validation_split']),
-            verbose=config.get('verbose', 1)
+            verbose=config.get('verbose', 1),
+            callbacks=[
+                tf.keras.callbacks.EarlyStopping(
+                    monitor='val_accuracy',
+                    patience=2,
+                    restore_best_weights=True
+                )
+            ]
         )
 
         # Save model sau khi train
         save_path = CLIENT_MODEL_TEMPLATE.format(f"client_{self.cid}")
-        self.model.save(save_path)
+        model.save(save_path)
         print(f"Saved client model to: {save_path}")
 
+        weights = model.get_weights()
         metrics = {
-            "accuracy": history.history['accuracy'][-1],
-            "loss": history.history['loss'][-1],
-            "client_id": self.cid
+            'accuracy': float(history.history['accuracy'][-1]),  # Convert to float
+            'loss': float(history.history['loss'][-1]),  # Convert to float
+            'client_id': self.cid
         }
 
-        return self.model.get_weights(), len(self.x_train), metrics
+        # Apply secure aggregation if enabled
+        if hasattr(self, 'secure_agg'):
+            weights, masks = self.secure_agg.mask_weights(
+                weights,
+                int(self.cid),
+                self.client_keys
+            )
+            # Convert masks to base64 encoded strings
+            encoded_masks = [base64.b64encode(m).decode('utf-8') for m in masks]
+            metrics['masks'] = json.dumps(encoded_masks)  # Convert list to JSON string
+
+        # Add DP metrics if enabled
+        if hasattr(self, 'dp_federated'):
+            epsilon, delta = self.dp_federated.compute_privacy_loss(
+                len(self.x_train),
+                config.get('batch_size', DATA_CONFIG['batch_size']),
+                config.get('local_epochs', DATA_CONFIG['local_epochs']),
+                PRIVACY_CONFIG['differential_privacy']['target_delta']
+            )
+            metrics.update({
+                'epsilon': float(epsilon),  # Convert to float
+                'delta': float(delta),  # Convert to float
+                'privacy_spent': float(self.dp_federated.get_privacy_spent())  # Convert to float
+            })
+
+        return weights, len(self.x_train), metrics
 
     def evaluate(self, parameters, config):
         self.model.set_weights(parameters)

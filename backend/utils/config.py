@@ -81,8 +81,8 @@ FL_CONFIG = {
 DATA_CONFIG = {
     # Training hyperparameters
     'batch_size': 32,
-    'local_epochs': 1,
-    'learning_rate': 0.001,
+    'local_epochs': 5,
+    'learning_rate': 0.0005,
     'validation_split': 0.1,
     
     # Verbose levels
@@ -113,6 +113,12 @@ MODEL_CONFIG = {
     },
     'compile_options': {
         'optimizer': 'adam',
+        'optimizer_config': {
+            'learning_rate': DATA_CONFIG['learning_rate'],
+            'beta_1': 0.9,
+            'beta_2': 0.999,
+            'epsilon': 1e-07
+        },
         'loss': 'sparse_categorical_crossentropy',
         'metrics': ['accuracy'],
     }
@@ -235,6 +241,32 @@ TEST_CONFIG = {
     'save_predictions': True,
 }
 
+# Privacy config
+PRIVACY_CONFIG = {
+    'secure_aggregation': {
+        'enabled': True,
+        'min_clients_per_round': 3,
+        'timeout_seconds': 30,
+        'key_storage_path': os.path.join(BASE_DIR, 'keys'),
+    },
+    'differential_privacy': {
+        'enabled': True,
+        'l2_norm_clip': 1.0,
+        'noise_multiplier': 1.1,
+        'num_microbatches': 1,
+        'target_epsilon': 10.0,
+        'target_delta': 1e-5,
+        'monitoring': {
+            'log_privacy_metrics': True,
+            'privacy_metrics_path': os.path.join(MODEL_DIR, 'privacy_metrics')
+        }
+    }
+}
+
+os.makedirs(PRIVACY_CONFIG['secure_aggregation']['key_storage_path'], exist_ok=True)
+os.makedirs(PRIVACY_CONFIG['differential_privacy']['monitoring']['privacy_metrics_path'], exist_ok=True)
+
 # Create necessary directories
 for directory in [MODEL_DIR, RESULTS_CONFIG['save_dir'], MONITOR_CONFIG['monitoring_dir']]:
     os.makedirs(directory, exist_ok=True)
+    
