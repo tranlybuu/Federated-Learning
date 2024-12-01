@@ -107,6 +107,12 @@ docker run -p 8000:5000 federated-learning-mnist:latest
 
 ## Sử dụng
 
+Trước khi bắt đầu quá trình, xóa `model` để đảm bảo không có sự nhầm lần nào
+
+```bash
+rm backend/models/ -Recurse -Force 
+```
+
 ### 1. Initial Training Phase (Giai đoạn Training Ban đầu)
 
 Mục đích:
