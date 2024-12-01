@@ -36,11 +36,11 @@ TRAINING_CONFIG = {
     'data_ranges': {
         'initial': {
             '0': (0, 3),  # Client 1: data 0-2
-            '1': (3, 5),  # Client 2: data 3-4
+            '1': (2, 5),  # Client 2: data 2-4
         },
         'additional': {
-            '0': (5, 7),  # Client 1: data 5-6
-            '1': (7, 9),  # Client 2: data 7-8
+            '0': (5, 8),  # Client 1: data 5-6
+            '1': (7, 10),  # Client 2: data 7-8
             '2': (5, 10), # Client 3: data 5,9
         }
     }
@@ -50,7 +50,7 @@ TRAINING_CONFIG = {
 FL_CONFIG = {
     # Số rounds cho mỗi mode
     'num_rounds': {
-        'initial': 3,
+        'initial': 5,
         'additional': 5,
     },
 
@@ -81,7 +81,7 @@ FL_CONFIG = {
 DATA_CONFIG = {
     # Training hyperparameters
     'batch_size': 32,
-    'local_epochs': 1,
+    'local_epochs': 3,
     'learning_rate': 0.001,
     'validation_split': 0.1,
     
@@ -127,27 +127,27 @@ DATA_RANGES_INFO = {
             'phase': 'initial'
         },
         '2': {
-            'range': (3, 5),
-            'labels': [3, 4],
-            'description': 'Training with digits 3, 4',
+            'range': (2, 5),
+            'labels': [2, 3, 4],
+            'description': 'Training with digits 2, 3, 4',
             'phase': 'initial'
         },
         '3': {
-            'range': (5, 7),
-            'labels': [5, 6],
-            'description': 'Training with digits 5, 6',
+            'range': (5, 8),
+            'labels': [5, 6, 7],
+            'description': 'Training with digits 5, 6, 7',
             'phase': 'additional'
         },
         '4': {
-            'range': (7, 9),
-            'labels': [7, 8],
-            'description': 'Training with digits 7, 8',
+            'range': (7, 10),
+            'labels': [7, 8, 9],
+            'description': 'Training with digits 7, 8, 9',
             'phase': 'additional'
         },
         '5': {
             'range': (5, 10),
-            'labels': [5, 9],
-            'description': 'Training with digits 5, 9',
+            'labels': [5, 6, 7, 8, 9],
+            'description': 'Training with digits 5, 6, 7, 8, 9',
             'phase': 'additional'
         }
     },

@@ -133,12 +133,12 @@ python -m backend.main --mode initial --server
 
 2. Trong terminal mới, khởi động Client 1:
 ```bash
-python -m backend.federated_learning.flwr_client --cid 1
+python -m backend.federated_learning.flwr_client --mode initial --cid 1
 ```
 
 3. Trong terminal khác, khởi động Client 2:
 ```bash
-python -m backend.federated_learning.flwr_client --cid 2
+python -m backend.federated_learning.flwr_client --mode initial --cid 2
 ```
 
 Kết quả:
@@ -213,7 +213,7 @@ curl.exe -X POST -F "image=@digit.png" http://localhost:5000/recognize
 curl.exe http://localhost:5000/models
 
 # 2. Predict với model cụ thể:
-curl.exe -X POST -H "Content-Type: multipart/form-data" --data-binary "@backend/mnist_samples/9a.png" "http://localhost:5000/recognize?model=best_additional_model.keras"
+curl.exe -X POST -H "Content-Type: multipart/form-data" --data-binary "@backend/mnist_samples/test.png" "http://localhost:5000/recognize?model=best_initial_model.keras"
 
 # 4. Kiểm tra health và xem danh sách models:
 curl.exe http://localhost:5000/health
