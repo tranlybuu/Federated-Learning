@@ -4,10 +4,9 @@ import numpy as np
 import json
 import argparse
 from ..utils.config import (
-    TRAINING_CONFIG, DATA_CONFIG, DATA_RANGES_INFO, DATA_SUMMARY_TEMPLATE,
+    DATA_CONFIG, DATA_RANGES_INFO, DATA_SUMMARY_TEMPLATE,
     INITIAL_MODEL_PATH, CLIENT_MODEL_TEMPLATE, TEST_CONFIG, MODEL_DIR
 )
-from .model import load_model_for_mode
 import os
 
 class MnistClient(fl.client.NumPyClient):

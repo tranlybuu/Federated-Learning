@@ -1,9 +1,9 @@
 import flwr as fl
 import tensorflow as tf
-from .model import create_model, load_model_for_mode, save_model
+from .model import create_model
 from ..utils.config import (
-    FL_CONFIG, MODEL_DIR, TRAINING_CONFIG, DATA_SUMMARY_TEMPLATE,
-    INITIAL_MODEL_PATH, MODEL_TEMPLATES, DATA_RANGES_INFO
+    FL_CONFIG, MODEL_DIR, DATA_SUMMARY_TEMPLATE,
+    MODEL_TEMPLATES, DATA_RANGES_INFO
 )
 from datetime import datetime
 import os

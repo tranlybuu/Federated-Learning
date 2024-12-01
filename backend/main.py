@@ -1,12 +1,4 @@
-import sys
-import os
-
-# Add the project root directory to Python path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.insert(0, project_root)
-
 import argparse
-import flwr as fl
 from .utils.config import (
     FL_CONFIG, API_CONFIG, TRAINING_CONFIG,
     MODEL_DIR, INITIAL_MODEL_PATH
@@ -15,7 +7,11 @@ from .federated_learning.flwr_server import start_server
 from .federated_learning.flwr_client import start_client
 from .api.server import app
 import os
-import json
+import sys
+
+# Add the project root directory to Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, project_root)
 
 def create_parser():
     """Create argument parser with detailed help messages."""

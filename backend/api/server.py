@@ -215,7 +215,6 @@ def recognize():
         
         return jsonify({
             'digit': int(digit),
-            'confidence': confidence,
             'confidence': round(confidence*100,4),
             'all_confidence': all_confidence,
             'success': True,
