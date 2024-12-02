@@ -133,12 +133,12 @@ python -m backend.main --mode initial --server
 
 2. Trong terminal mới, khởi động Client 1:
 ```bash
-python -m backend.federated_learning.flwr_client --mode initial --cid 1
+python -m backend.federated_learning.flwr_client --cid 1
 ```
 
 3. Trong terminal khác, khởi động Client 2:
 ```bash
-python -m backend.federated_learning.flwr_client --mode initial --cid 2
+python -m backend.federated_learning.flwr_client --cid 2
 ```
 
 Kết quả:

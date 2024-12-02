@@ -50,7 +50,7 @@ TRAINING_CONFIG = {
 FL_CONFIG = {
     # Số rounds cho mỗi mode
     'num_rounds': {
-        'initial': 5,
+        'initial': 3,
         'additional': 5,
     },
 
@@ -80,10 +80,10 @@ FL_CONFIG = {
 # Data và training configuration
 DATA_CONFIG = {
     # Training hyperparameters
-    'batch_size': 32,
+    'batch_size': 128,
     'local_epochs': 3,
     'learning_rate': 0.001,
-    'validation_split': 0.1,
+    'validation_split': 0.2,
     
     # Verbose levels
     'training_verbose': 1,
@@ -120,37 +120,37 @@ MODEL_CONFIG = {
 
 DATA_RANGES_INFO = {
     'client_ranges': {
-        '1': {
-            'range': (0, 3),
-            'labels': [0, 1, 2],
-            'description': 'Training with digits 0, 1, 2',
-            'phase': 'initial'
+            '1': {
+                'range': (0, 10),
+                'labels': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                'description': 'Training with all digits',
+                'phase': 'initial'
+            },
+            '2': {
+                'range': (0, 10),
+                'labels': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                'description': 'Training with all digits',
+                'phase': 'initial'
+            },
+            '3': {
+                'range': (0, 10),
+                'labels': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                'description': 'Training with all digits',
+                'phase': 'additional'
+            },
+            '4': {
+                'range': (0, 10),
+                'labels': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                'description': 'Training with all digits', 
+                'phase': 'additional'
+            },
+            '5': {
+                'range': (0, 10),
+                'labels': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                'description': 'Training with all digits',
+                'phase': 'additional'
+            }
         },
-        '2': {
-            'range': (2, 5),
-            'labels': [2, 3, 4],
-            'description': 'Training with digits 2, 3, 4',
-            'phase': 'initial'
-        },
-        '3': {
-            'range': (5, 8),
-            'labels': [5, 6, 7],
-            'description': 'Training with digits 5, 6, 7',
-            'phase': 'additional'
-        },
-        '4': {
-            'range': (7, 10),
-            'labels': [7, 8, 9],
-            'description': 'Training with digits 7, 8, 9',
-            'phase': 'additional'
-        },
-        '5': {
-            'range': (5, 10),
-            'labels': [5, 6, 7, 8, 9],
-            'description': 'Training with digits 5, 6, 7, 8, 9',
-            'phase': 'additional'
-        }
-    },
     'phase_requirements': {
         'initial': {
             'min_clients': 2,
