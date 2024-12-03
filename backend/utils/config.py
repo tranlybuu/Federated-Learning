@@ -51,7 +51,7 @@ FL_CONFIG = {
     # Số rounds cho mỗi mode
     'num_rounds': {
         'initial': 3,
-        'additional': 5,
+        'additional': 3,
     },
 
     # Số clients tối thiểu cho mỗi mode

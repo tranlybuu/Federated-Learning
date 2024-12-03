@@ -3,6 +3,7 @@ import tensorflow as tf
 import numpy as np
 import json
 import argparse
+from .model import create_model
 from ..utils.config import (
     DATA_CONFIG, DATA_RANGES_INFO, DATA_SUMMARY_TEMPLATE,
     INITIAL_MODEL_PATH, CLIENT_MODEL_TEMPLATE, TEST_CONFIG, MODEL_DIR
@@ -24,16 +25,7 @@ class MnistClient(fl.client.NumPyClient):
         models = [f for f in os.listdir(MODEL_DIR) if f.endswith('.keras')]
         if not models:
             # Nếu chưa có model nào, tạo model mới
-            model = tf.keras.Sequential([
-                tf.keras.layers.Input(shape=(28, 28, 1)),
-                tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
-                tf.keras.layers.MaxPooling2D((2, 2)),
-                tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
-                tf.keras.layers.MaxPooling2D((2, 2)),
-                tf.keras.layers.Flatten(),
-                tf.keras.layers.Dense(64, activation='relu'),
-                tf.keras.layers.Dense(10, activation='softmax')
-            ])
+            model = create_model()
             model.compile(
                 optimizer='adam',
                 loss='sparse_categorical_crossentropy',
@@ -184,17 +176,29 @@ class TestOnlyClient:
         return evaluation
 
 def load_data(cid):
-    """Load và phân tích dữ liệu MNIST cho client."""
+    """Tải và phân tích dữ liệu MNIST cho client."""
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
-
-    # Normalize và reshape
     x_train = x_train.reshape(-1, 28, 28, 1) / 255.0
     x_test = x_test.reshape(-1, 28, 28, 1) / 255.0
-
+    
     # Kiểm tra client ID có hợp lệ không
     str_cid = str(cid)
     if str_cid not in DATA_RANGES_INFO['client_ranges']:
         raise ValueError(f"Invalid client ID: {cid}")
+    
+    num_clients = DATA_CONFIG["num_clients"]["initial"] + DATA_CONFIG["num_clients"]["additional"]
+    shard_size = len(x_train)//num_clients
+    if (cid <= DATA_CONFIG["num_clients"]["initial"]):
+        shard_size = 1000
+    start = (cid-1) * shard_size
+    end = start + shard_size
+    x_train = x_train[start:end]
+    y_train = y_train[start:end]
+    shard_size = int(shard_size*0.2)
+    start = (cid-1) * shard_size
+    end = start + shard_size
+    x_test = x_test[start:end]
+    y_test = y_test[start:end]
 
     # Lấy thông tin range và labels cho client
     client_info = DATA_RANGES_INFO['client_ranges'][str_cid]
