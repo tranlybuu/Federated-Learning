@@ -3,7 +3,7 @@ import tensorflow as tf
 from .model import create_model
 from ..utils.config import (
     FL_CONFIG, MODEL_DIR, DATA_SUMMARY_TEMPLATE,
-    MODEL_TEMPLATES, DATA_RANGES_INFO, DATA_CONFIG
+    MODEL_TEMPLATES, DATA_RANGES_INFO
 )
 from datetime import datetime
 import os
