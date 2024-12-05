@@ -3,15 +3,17 @@ import tensorflow as tf
 from .model import create_model
 from ..utils.config import (
     FL_CONFIG, MODEL_DIR, DATA_SUMMARY_TEMPLATE,
-    MODEL_TEMPLATES, DATA_RANGES_INFO
+    MODEL_TEMPLATES, DATA_RANGES_INFO, SECURITY_CONFIG
 )
+from .secure_aggregation import SecureAggregator
+from ..security.privacy_metrics import PrivacyMetricsTracker
 from datetime import datetime
 import os
 import json
 import numpy as np
 
 class FederatedServer(fl.server.strategy.FedAvg):
-    def __init__(self, mode='initial', *args, **kwargs):
+    def __init__(self, mode='initial', security_components=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.mode = mode
         self.round_results = []
@@ -19,7 +21,18 @@ class FederatedServer(fl.server.strategy.FedAvg):
         self.best_accuracy = 0.0
         self.active_clients = set()
         self.client_id_map = {}  # Theo dõi clients đang tham gia
+
+        # Lưu security components
+        self.security_components = security_components or {}
         
+        if SECURITY_CONFIG['secure_aggregation']['enabled']:
+            self.secure_aggregator = SecureAggregator(
+                num_clients=FL_CONFIG['min_fit_clients'][mode]
+            )
+        
+        if SECURITY_CONFIG['differential_privacy']['enabled']:
+            self.privacy_tracker = PrivacyMetricsTracker(log_dir="logs/privacy_logs")
+
         # Khởi tạo hoặc load model dựa trên mode
         if mode == 'initial':
             self.model = create_model()
@@ -70,34 +83,73 @@ class FederatedServer(fl.server.strategy.FedAvg):
 
         if not results:
             return None, {}
+        
+        # Thêm secure aggregation nếu enabled
+        if SECURITY_CONFIG['secure_aggregation']['enabled']:
+            verified_results = []
+            for client_proxy, fit_res in results:
+                if self.secure_aggregator.verify_client(
+                    client_proxy.cid,
+                    fit_res.metrics.get('signature')
+                ):
+                    verified_results.append((client_proxy, fit_res))
+            results = verified_results
 
-        # Collect training results
-        weights = []
-        num_examples = []
-        metrics = []
+        # Collect training results - sửa đổi để dùng secure aggregation
+        if SECURITY_CONFIG['secure_aggregation']['enabled']:
+            masked_updates = []
+            num_examples = []
+            metrics = []
+            for client_proxy, fit_res in results:
+                weights = fl.common.parameters_to_ndarrays(fit_res.parameters)
+                masked = self.secure_aggregator.mask_weights(
+                    fit_res.metrics['client_id'],
+                    weights
+                )
+                masked_updates.append(masked)
+                num_examples.append(fit_res.num_examples)
+                metrics.append(fit_res.metrics)
+                
+            weighted_weights = self.secure_aggregator.aggregate_masked_weights(
+                masked_updates
+            )
+        else:
+            # Collect training results
+            weights = []
+            num_examples = []
+            metrics = []
 
-        for client_proxy, fit_res in results:
-            client_weights = fl.common.parameters_to_ndarrays(fit_res.parameters)
-            weights.append(client_weights)
-            num_examples.append(fit_res.num_examples)
-            metrics.append(fit_res.metrics)
-            numeric_cid = self.client_id_map.get(client_proxy.cid, 'unknown')
-            print(f"Client {numeric_cid} metrics: {fit_res.metrics}")
+            for client_proxy, fit_res in results:
+                client_weights = fl.common.parameters_to_ndarrays(fit_res.parameters)
+                weights.append(client_weights)
+                num_examples.append(fit_res.num_examples)
+                metrics.append(fit_res.metrics)
+                numeric_cid = self.client_id_map.get(client_proxy.cid, 'unknown')
+                print(f"Client {numeric_cid} metrics: {fit_res.metrics}")
 
-        total_examples = sum(num_examples)
-        if total_examples == 0:
-            return None, {}
+            total_examples = sum(num_examples)
+            if total_examples == 0:
+                return None, {}
 
-        # Aggregate weights using weighted average
-        weighted_weights = [
-            np.sum([w[i] * n for w, n in zip(weights, num_examples)], axis=0) / total_examples
-            for i in range(len(weights[0]))
-        ]
+            # Aggregate weights using weighted average
+            weighted_weights = [
+                np.sum([w[i] * n for w, n in zip(weights, num_examples)], axis=0) / total_examples
+                for i in range(len(weights[0]))
+            ]
 
         # Update model and evaluate
         self.model.set_weights(weighted_weights)
         test_loss, test_accuracy = self._evaluate_global_model()
         print(f"Round {server_round} results - Loss: {test_loss}, Accuracy: {test_accuracy}")
+
+        # Thêm privacy tracking nếu enabled
+        if SECURITY_CONFIG['differential_privacy']['enabled']:
+            for metric in metrics:
+                if 'eps' in metric:
+                    self.privacy_tracker.log_privacy_spent(
+                        metric['client_id'],
+                        metric['eps']
+                    )
 
         # Save results
         round_metrics = {
@@ -255,7 +307,10 @@ class FederatedServer(fl.server.strategy.FedAvg):
         """Get current model parameters."""
         return self.model.get_weights()
 
-def start_server(mode, num_rounds=None, min_fit_clients=None, min_evaluate_clients=None):
+def start_server(mode, num_rounds=None, 
+                 min_fit_clients=None, 
+                 min_evaluate_clients=None, 
+                 security_components=None):
     """Start Flower server with specified configuration."""
     if num_rounds is None:
         num_rounds = FL_CONFIG['num_rounds'].get(mode, 3)
@@ -282,8 +337,11 @@ def start_server(mode, num_rounds=None, min_fit_clients=None, min_evaluate_clien
         fraction_evaluate=FL_CONFIG['fraction_evaluate'],
         min_fit_clients=min_fit_clients,
         min_evaluate_clients=min_evaluate_clients,
-        min_available_clients=FL_CONFIG['min_available_clients'].get(mode, min_fit_clients)
+        min_available_clients=FL_CONFIG['min_available_clients'].get(mode, min_fit_clients),
+        security_components=security_components  # Thêm tham số này
     )
+    
+    strategy.num_rounds = num_rounds
 
     strategy.num_rounds = num_rounds
 

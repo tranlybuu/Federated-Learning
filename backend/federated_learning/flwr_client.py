@@ -4,10 +4,12 @@ import numpy as np
 import json
 import argparse
 from .model import create_model
+from .differential_privacy import DPModelWrapper, DPClientUpdate
 from ..utils.config import (
-    DATA_CONFIG, DATA_RANGES_INFO, DATA_SUMMARY_TEMPLATE,
-    INITIAL_MODEL_PATH, CLIENT_MODEL_TEMPLATE, TEST_CONFIG, MODEL_DIR
+    DATA_CONFIG, DATA_RANGES_INFO, DATA_SUMMARY_TEMPLATE, SECURITY_CONFIG,
+    INITIAL_MODEL_PATH, CLIENT_MODEL_TEMPLATE, TEST_CONFIG, MODEL_DIR, SECURITY_PATHS
 )
+from ..security.crypto_utils import CryptoManager
 import os
 
 class MnistClient(fl.client.NumPyClient):
@@ -19,6 +21,13 @@ class MnistClient(fl.client.NumPyClient):
 
         # Load model mới nhất từ thư mục models
         self.model = self._load_latest_model()
+
+        # Thêm DP components nếu enabled
+        if SECURITY_CONFIG['differential_privacy']['enabled']:
+            self.dp_wrapper = DPModelWrapper(
+                **SECURITY_CONFIG['differential_privacy']
+            )
+            self.dp_trainer = DPClientUpdate(self.dp_wrapper)
 
     def _load_latest_model(self):
         """Load model mới nhất hoặc tạo model mới nếu chưa có."""
@@ -44,25 +53,41 @@ class MnistClient(fl.client.NumPyClient):
     def fit(self, parameters, config):
         self.model.set_weights(parameters)
 
-        history = self.model.fit(
-            self.x_train,
-            self.y_train,
-            epochs=config.get('local_epochs', DATA_CONFIG['local_epochs']),
-            batch_size=config.get('batch_size', DATA_CONFIG['batch_size']),
-            validation_split=config.get('validation_split', DATA_CONFIG['validation_split']),
-            verbose=config.get('verbose', 1)
-        )
+        if SECURITY_CONFIG['differential_privacy']['enabled']:
+            # Training với DP
+            private_model, history, eps = self.dp_trainer.train_with_privacy(
+                self.model,
+                (self.x_train, self.y_train),
+                epochs=config.get('local_epochs', DATA_CONFIG['local_epochs']),
+                batch_size=config.get('batch_size', DATA_CONFIG['batch_size'])
+            )
+            self.model = private_model
+            metrics = {
+                'accuracy': history.history['accuracy'][-1],
+                'loss': history.history['loss'][-1],
+                'client_id': self.cid,
+                'eps': eps  # Track privacy budget spent
+            }
+        else:
+            history = self.model.fit(
+                self.x_train,
+                self.y_train,
+                epochs=config.get('local_epochs', DATA_CONFIG['local_epochs']),
+                batch_size=config.get('batch_size', DATA_CONFIG['batch_size']),
+                validation_split=config.get('validation_split', DATA_CONFIG['validation_split']),
+                verbose=config.get('verbose', 1)
+            )
+
+            metrics = {
+                "accuracy": history.history['accuracy'][-1],
+                "loss": history.history['loss'][-1],
+                "client_id": self.cid
+            }
 
         # Save model sau khi train
         save_path = CLIENT_MODEL_TEMPLATE.format(f"client_{self.cid}")
         self.model.save(save_path)
         print(f"Saved client model to: {save_path}")
-
-        metrics = {
-            "accuracy": history.history['accuracy'][-1],
-            "loss": history.history['loss'][-1],
-            "client_id": self.cid
-        }
 
         return self.model.get_weights(), len(self.x_train), metrics
 
@@ -278,89 +303,102 @@ def load_data(cid):
     return x_train_filtered, y_train_filtered, x_test_filtered, y_test_filtered
 
 def create_client_parser():
-    """Tạo parser với các mô tả chi tiết cho client."""
     parser = argparse.ArgumentParser(
         description="""
-Federated Learning Client for Handwriting Recognition
+Federated Learning Client for Handwriting Recognition with Security Features
 
 This program runs a Federated Learning client that participates in the training process.
-Each client loads a portion of the MNIST dataset and trains the model locally.
+Each client loads the full MNIST dataset and trains the model locally.
 
 Supported modes:
-- initial: First training phase with data range 0-4
-- additional: Second training phase with data range 5-9
+- initial: First training phase
+- additional: Second training phase
 - test-only: For inference only
 
-Example usage:
-  Initial training:    python flwr_client.py --mode initial --cid 0
-  Additional training: python flwr_client.py --mode additional --cid 0
-  Test only:          python flwr_client.py --mode test-only
-
-Note: Make sure the server is running before starting the client.
+Security Features:
+--secure-aggregation: Enable secure aggregation
+--differential-privacy: Enable differential privacy
+--verification: Enable client verification
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    # Required arguments
+    # Original arguments
     parser.add_argument(
         "--cid",
         type=int,
         required=True,
         help="Client ID (required, must be between 1-5)"
     )
-
-    # Optional arguments with defaults
     parser.add_argument(
         "--server_address",
         type=str,
         default="127.0.0.1:8080",
-        help="Server address in format host:port (default: 127.0.0.1:8080)"
+        help="Server address in format host:port"
     )
-
     parser.add_argument(
         "--batch_size",
         type=int,
         default=DATA_CONFIG['batch_size'],
-        help=f"Batch size for training (default: {DATA_CONFIG['batch_size']})"
+        help=f"Batch size for training"
     )
-
     parser.add_argument(
         "--local_epochs",
         type=int,
         default=DATA_CONFIG['local_epochs'],
-        help=f"Number of local epochs (default: {DATA_CONFIG['local_epochs']})"
+        help=f"Number of local epochs"
     )
 
-    # Advanced configuration
-    advanced_group = parser.add_argument_group('Advanced Configuration')
-    advanced_group.add_argument(
-        "--validation_split",
-        type=float,
-        default=DATA_CONFIG['validation_split'],
-        help=f"Fraction of data to use for validation (default: {DATA_CONFIG['validation_split']})"
+    # Security arguments
+    security_group = parser.add_argument_group('Security Configuration')
+    security_group.add_argument(
+        "--secure-aggregation",
+        action="store_true",
+        help="Enable secure aggregation"
     )
-
-    advanced_group.add_argument(
-        "--verbose",
-        type=int,
-        choices=[0, 1, 2],
-        default=1,
-        help="Verbosity level for training (0: silent, 1: progress bar, 2: one line per epoch)"
+    security_group.add_argument(
+        "--differential-privacy",
+        action="store_true",
+        help="Enable differential privacy"
+    )
+    security_group.add_argument(
+        "--verification",
+        action="store_true",
+        help="Enable client verification"
     )
 
     return parser
 
-def print_client_config(args):
-    """In ra cấu hình hiện tại của client."""
+def initialize_client_security(args):
+    """Initialize client-side security components."""
+    components = {}
+    
+    if args.secure_aggregation:
+        crypto_manager = CryptoManager(SECURITY_PATHS['client_keys'])
+        # Generate client keys if they don't exist
+        if not os.path.exists(os.path.join(SECURITY_PATHS['client_keys'], f'client_{args.cid}_private.pem')):
+            crypto_manager.generate_client_keypair(args.cid)
+        components['crypto_manager'] = crypto_manager
+        
+    if args.differential_privacy:
+        components['dp_wrapper'] = DPModelWrapper(
+            **SECURITY_CONFIG['differential_privacy']
+        )
+        
+    return components
+
+def print_client_config(args, security_components):
     print("\nClient Configuration:")
     print("=" * 50)
-    print(f"Mode: {args.mode}")
     print(f"Client ID: {args.cid}")
     print(f"Server Address: {args.server_address}")
     print(f"Batch Size: {args.batch_size}")
     print(f"Local Epochs: {args.local_epochs}")
-    print(f"Validation Split: {args.validation_split}")
-    print(f"Verbose Level: {args.verbose}")
+
+    print("\nSecurity Configuration:")
+    print(f"Secure Aggregation: {'Enabled' if args.secure_aggregation else 'Disabled'}")
+    print(f"Differential Privacy: {'Enabled' if args.differential_privacy else 'Disabled'}")
+    print(f"Client Verification: {'Enabled' if args.verification else 'Disabled'}")
     print("=" * 50)
 
 def start_client(args):
@@ -422,4 +460,31 @@ def main():
         raise
 
 if __name__ == "__main__":
-    main()
+    # Parse arguments
+    parser = create_client_parser()
+    args = parser.parse_args()
+
+    try:
+        # Initialize security components
+        security_components = initialize_client_security(args)
+        
+        # Print configuration
+        print_client_config(args, security_components)
+
+        # Create and start client
+        client = MnistClient(args.cid)
+        
+        print(f"\nConnecting to server at {args.server_address}...")
+        fl.client.start_client(
+            server_address=args.server_address,
+            client=client
+        )
+
+    except Exception as e:
+        print(f"\nError: {e}")
+        print("\nTroubleshooting tips:")
+        print("1. Make sure the server is running")
+        print("2. Check if your Client ID is valid (1-5)")
+        print("3. Verify security components initialization")
+        print("4. Check if you have enough memory")
+        raise

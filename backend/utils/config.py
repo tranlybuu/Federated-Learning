@@ -30,22 +30,6 @@ MODEL_TEMPLATES = {
     'additional': os.path.join(MODEL_DIR, 'additional_model_round_{}.keras')
 }
 
-# Training mode và data ranges configuration
-TRAINING_CONFIG = {
-    'modes': ['initial', 'additional', 'test-only'],
-    'data_ranges': {
-        'initial': {
-            '0': (0, 3),  # Client 1: data 0-2
-            '1': (2, 5),  # Client 2: data 2-4
-        },
-        'additional': {
-            '0': (5, 8),  # Client 1: data 5-6
-            '1': (7, 10),  # Client 2: data 7-8
-            '2': (5, 10), # Client 3: data 5,9
-        }
-    }
-}
-
 # Federated Learning configuration
 FL_CONFIG = {
     # Số rounds cho mỗi mode
@@ -233,6 +217,39 @@ TEST_CONFIG = {
     'metrics': ['accuracy', 'precision', 'recall', 'f1'],
     'confusion_matrix': True,
     'save_predictions': True,
+}
+
+# Thêm Security Configuration
+SECURITY_CONFIG = {
+    'secure_aggregation': {
+        'enabled': True,
+        'key_size': 2048,
+        'signature_algorithm': 'SHA256',
+        'verification_required': True
+    },
+    'differential_privacy': {
+        'enabled': True,
+        'l2_norm_clip': 1.0,
+        'noise_multiplier': 1.1,
+        'target_delta': 1e-5,
+        'target_epsilon': 10.0
+    }
+}
+
+# Cập nhật FL_CONFIG
+FL_CONFIG.update({
+    'security': {
+        'verify_clients': True,
+        'track_privacy_budget': True
+    }
+})
+
+# Thêm paths cho security
+SECURITY_PATHS = {
+    'client_keys': os.path.join(BASE_DIR, 'security', 'keys'),
+    'privacy_logs': os.path.join(BASE_DIR, 'security', 'privacy_logs'),
+    'verification': os.path.join(BASE_DIR, 'security', 'verification'),
+    'backups': os.path.join(BASE_DIR, 'security', 'backups')
 }
 
 # Create necessary directories
