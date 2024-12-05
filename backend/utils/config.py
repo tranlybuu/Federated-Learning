@@ -35,7 +35,6 @@ TRAINING_CONFIG = {
     'modes': ['initial', 'additional', 'test-only'],
     'data_ranges': {
         'initial': {
-<<<<<<< HEAD
             '0': (0, 18),  # Client 1: data 0-2
             '1': (17, 36),  # Client 2: data 2-4
         },
@@ -43,15 +42,6 @@ TRAINING_CONFIG = {
             '0': (0, 13),  # Client 1: data 5-6
             '1': (13, 27),  # Client 2: data 7-8
             '2': (27, 36), # Client 3: data 5,9
-=======
-            '0': (0, 3),
-            '1': (2, 5),
-        },
-        'additional': {
-            '0': (5, 8),
-            '1': (7, 10),
-            '2': (5, 10),
->>>>>>> 6771b95eb86c1bb2b21e47efa159acd2fb84d2c0
         }
     }
 }
