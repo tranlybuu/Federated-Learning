@@ -188,18 +188,6 @@ def load_data(cid):
         raise ValueError(f"Invalid client ID: {cid}")
     
     num_clients = DATA_CONFIG["num_clients"]["initial"] + DATA_CONFIG["num_clients"]["additional"]
-    shard_size = len(x_train)//num_clients
-    # if (cid <= DATA_CONFIG["num_clients"]["initial"]):
-    #     shard_size = 10000
-    start = (cid-1) * shard_size
-    end = start + shard_size
-    x_train = x_train[start:end]
-    y_train = y_train[start:end]
-    shard_size = int(shard_size*0.2)
-    start = (cid-1) * shard_size
-    end = start + shard_size
-    x_test = x_test[start:end]
-    y_test = y_test[start:end]
 
     # Lấy thông tin range và labels cho client
     client_info = DATA_RANGES_INFO['client_ranges'][str_cid]
@@ -209,11 +197,21 @@ def load_data(cid):
     train_mask = np.isin(y_train, allowed_labels)
     x_train_filtered = x_train[train_mask]
     y_train_filtered = y_train[train_mask]
+    shard_size = len(x_train_filtered)//num_clients
+    start = (cid-1) * shard_size
+    end = start + shard_size
+    x_train_filtered = x_train_filtered[start:end]
+    y_train_filtered = y_train_filtered[start:end]
 
     # Lọc dữ liệu test theo labels được chỉ định
     test_mask = np.isin(y_test, allowed_labels)
     x_test_filtered = x_test[test_mask]
     y_test_filtered = y_test[test_mask]
+    shard_size = len(x_test_filtered)//num_clients
+    start = (cid-1) * shard_size
+    end = start + shard_size
+    x_test_filtered = x_test_filtered[start:end]
+    y_test_filtered = y_test_filtered[start:end]
 
     # Tính phân bố chi tiết cho tập train
     train_labels, train_counts = np.unique(y_train_filtered, return_counts=True)

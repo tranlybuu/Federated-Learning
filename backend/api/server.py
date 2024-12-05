@@ -77,29 +77,29 @@ def get_dataset_statistics():
     client_stats = {}
     
     # Client 0: digits 0-2
-    train_mask_0 = np.isin(y_train, [0, 1, 2])
-    test_mask_0 = np.isin(y_test, [0, 1, 2])
+    train_mask_0 = np.isin(y_train, DATA_RANGES_INFO['client_ranges']['1']['labels'])
+    test_mask_0 = np.isin(y_test, DATA_RANGES_INFO['client_ranges']['1']['labels'])
     train_labels_0 = y_train[train_mask_0]
     test_labels_0 = y_test[test_mask_0]
     
     client_stats[0] = {
         'train_samples': len(train_labels_0),
         'test_samples': len(test_labels_0),
-        'train_distribution': {str(i): int(np.sum(train_labels_0 == i)) for i in [0, 1, 2]},
-        'test_distribution': {str(i): int(np.sum(test_labels_0 == i)) for i in [0, 1, 2]}
+        'train_distribution': {str(i): int(np.sum(train_labels_0 == i)) for i in DATA_RANGES_INFO['client_ranges']['1']['labels']},
+        'test_distribution': {str(i): int(np.sum(test_labels_0 == i)) for i in DATA_RANGES_INFO['client_ranges']['1']['labels']}
     }
     
     # Client 1: digits 3-4
-    train_mask_1 = np.isin(y_train, [3, 4])
-    test_mask_1 = np.isin(y_test, [3, 4])
+    train_mask_1 = np.isin(y_train, DATA_RANGES_INFO['client_ranges']['2']['labels'])
+    test_mask_1 = np.isin(y_test, DATA_RANGES_INFO['client_ranges']['2']['labels'])
     train_labels_1 = y_train[train_mask_1]
     test_labels_1 = y_test[test_mask_1]
     
     client_stats[1] = {
         'train_samples': len(train_labels_1),
         'test_samples': len(test_labels_1),
-        'train_distribution': {str(i): int(np.sum(train_labels_1 == i)) for i in [3, 4]},
-        'test_distribution': {str(i): int(np.sum(test_labels_1 == i)) for i in [3, 4]}
+        'train_distribution': {str(i): int(np.sum(train_labels_1 == i)) for i in DATA_RANGES_INFO['client_ranges']['2']['labels']},
+        'test_distribution': {str(i): int(np.sum(test_labels_1 == i)) for i in DATA_RANGES_INFO['client_ranges']['2']['labels']}
     }
     
     return client_stats
