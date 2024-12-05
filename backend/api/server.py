@@ -9,6 +9,7 @@ from datetime import datetime
 import tensorflow as tf
 import os
 import requests
+from ..data.data_prep import load_and_preprocess_mnist
 from ..utils.config import (
     INITIAL_MODEL_PATH, MODEL_DIR,
     API_CONFIG, MODEL_TEMPLATES,
@@ -70,7 +71,7 @@ def get_latest_model_path():
 
 def get_dataset_statistics():
     """Lấy thống kê về tập train và test của từng client."""
-    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+    (x_train, y_train), (x_test, y_test) = load_and_preprocess_mnist()
     
     # Tính toán thống kê cho từng client
     client_stats = {}

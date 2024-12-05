@@ -1,6 +1,7 @@
 import flwr as fl
 import tensorflow as tf
 from .model import create_model
+from ..data.data_prep import load_and_preprocess_mnist
 from ..utils.config import (
     FL_CONFIG, MODEL_DIR, DATA_SUMMARY_TEMPLATE,
     MODEL_TEMPLATES, DATA_RANGES_INFO, DATA_CONFIG
@@ -133,7 +134,7 @@ class FederatedServer(fl.server.strategy.FedAvg):
 
     def _evaluate_global_model(self):
         """Evaluate model on test data."""
-        _, (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+        _, (x_test, y_test) = load_and_preprocess_mnist()
         x_test = x_test.reshape(-1, 28, 28, 1) / 255.0
         return self.model.evaluate(x_test, y_test, verbose=0)
 

@@ -4,6 +4,7 @@ import numpy as np
 import json
 import argparse
 from .model import create_model
+from ..data.data_prep import load_and_preprocess_mnist
 from ..utils.config import (
     DATA_CONFIG, DATA_RANGES_INFO, DATA_SUMMARY_TEMPLATE,
     INITIAL_MODEL_PATH, CLIENT_MODEL_TEMPLATE, TEST_CONFIG, MODEL_DIR
@@ -101,7 +102,7 @@ class TestOnlyClient:
 
     def _load_test_data(self):
         """Load dữ liệu test."""
-        _, (self.x_test, self.y_test) = tf.keras.datasets.mnist.load_data()
+        _, (self.x_test, self.y_test) = load_and_preprocess_mnist()
         self.x_test = self.x_test.reshape(-1, 28, 28, 1) / 255.0
 
     def compare_predictions(self, data=None):
@@ -177,7 +178,7 @@ class TestOnlyClient:
 
 def load_data(cid):
     """Tải và phân tích dữ liệu MNIST cho client."""
-    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+    (x_train, y_train), (x_test, y_test) = load_and_preprocess_mnist()
     x_train = x_train.reshape(-1, 28, 28, 1) / 255.0
     x_test = x_test.reshape(-1, 28, 28, 1) / 255.0
     
@@ -188,8 +189,8 @@ def load_data(cid):
     
     num_clients = DATA_CONFIG["num_clients"]["initial"] + DATA_CONFIG["num_clients"]["additional"]
     shard_size = len(x_train)//num_clients
-    if (cid <= DATA_CONFIG["num_clients"]["initial"]):
-        shard_size = 1000
+    # if (cid <= DATA_CONFIG["num_clients"]["initial"]):
+    #     shard_size = 10000
     start = (cid-1) * shard_size
     end = start + shard_size
     x_train = x_train[start:end]

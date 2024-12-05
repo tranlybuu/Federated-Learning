@@ -1,20 +1,16 @@
 import tensorflow as tf
 import numpy as np
-from utils.config import DATA_CONFIG, RANDOM_SEED
-
-np.random.seed(RANDOM_SEED)
+import pandas as pd
+from ..utils.config import DATA_CONFIG
 
 def load_and_preprocess_mnist():
-    """Load và tiền xử lý dữ liệu MNIST."""
-    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
-    
-    # Normalize pixel values
-    x_train = x_train.astype('float32') / 255
-    x_test = x_test.astype('float32') / 255
-    
-    # Reshape to (samples, height, width, channels)
-    x_train = x_train.reshape((-1, 28, 28, 1))
-    x_test = x_test.reshape((-1, 28, 28, 1))
+    data = pd.read_csv('./dataset/digit_char_dataset.csv')
+    y_data = data.iloc[:, -1].values
+    x_data = data.iloc[:, :-1].values.reshape(-1, 28, 28, 1) / 255.0
+
+    split_index = int(len(x_data) * 0.8)
+    x_train, y_train = x_data[:split_index], y_data[:split_index]
+    x_test, y_test = x_data[split_index:], y_data[split_index:]
     
     return (x_train, y_train), (x_test, y_test)
 
