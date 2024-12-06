@@ -1,6 +1,6 @@
 import argparse
 from .utils.config import (
-    FL_CONFIG, API_CONFIG,
+    FL_CONFIG, API_CONFIG, SECURE_AGG_CONFIG, 
     MODEL_DIR, INITIAL_MODEL_PATH
 )
 from .federated_learning.flwr_server import start_server
@@ -135,7 +135,9 @@ def initialize_directories():
     directories = [
         MODEL_DIR,
         os.path.join(MODEL_DIR, 'results'),
+        SECURE_AGG_CONFIG['key_storage']  # Thêm key storage
     ]
+    
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
 
@@ -161,6 +163,24 @@ def main():
                 debug=API_CONFIG['debug']
             )
         elif args.server:
+            # Initialize secure aggregation config
+            secure_config = {
+                'min_available_clients': FL_CONFIG['min_available_clients'][args.mode],
+                'min_fit_clients': FL_CONFIG['min_fit_clients'][args.mode],
+                'min_eval_clients': FL_CONFIG['min_evaluate_clients'][args.mode],
+                'secure_aggregation': True,
+                'round_timeout': SECURE_AGG_CONFIG['key_exchange_timeout'] + 
+                               SECURE_AGG_CONFIG['masking_timeout']
+            }
+
+            print("\nSecure Aggregation Settings:")
+            print("=" * 50)
+            print(f"Minimum clients for unmasking: {SECURE_AGG_CONFIG['min_clients_for_unmasking']}")
+            print(f"Key exchange timeout: {SECURE_AGG_CONFIG['key_exchange_timeout']}s")
+            print(f"Masking timeout: {SECURE_AGG_CONFIG['masking_timeout']}s")
+            print(f"Key rotation frequency: {SECURE_AGG_CONFIG['rotation_frequency']} rounds")
+            print("=" * 50)
+
             start_server(
                 mode=args.mode,
                 num_rounds=args.num_rounds,
@@ -168,7 +188,22 @@ def main():
                 min_evaluate_clients=FL_CONFIG['min_evaluate_clients'][args.mode]
             )
         else:  # client mode
-            start_client(args)
+            # Initialize client with secure aggregation
+            try:
+                print("\nInitializing secure client...")
+                print(f"Key storage location: {SECURE_AGG_CONFIG['key_storage']}")
+                
+                start_client(args)
+                
+                print("Secure client initialization successful!")
+                
+            except Exception as e:
+                print(f"\nError initializing secure client: {e}")
+                print("\nTroubleshooting tips:")
+                print("1. Check if key storage directory is accessible")
+                print("2. Verify if you have write permissions")
+                print("3. Ensure cryptographic libraries are installed")
+                raise
 
     except Exception as e:
         print(f"\nError: {e}")
@@ -178,9 +213,11 @@ def main():
             print("2. Check if initial model exists")
         if args.client:
             print("3. Make sure the server is running")
-            print("4. Verify that your Client ID is unique")
-            print("5. Check if you have enough memory for the specified batch size")
-        print("6. Verify that all directories have write permissions")
+            print("4. Verify that your Client ID is valid")
+            print("5. Check if you have enough memory")
+            print("6. Verify key exchange is working properly")
+        print("7. Check directory permissions")
+        print("8. Verify secure aggregation configuration")
         raise
 
 if __name__ == "__main__":
