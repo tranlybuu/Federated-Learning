@@ -38,7 +38,45 @@ Secure Aggregation là một kỹ thuật cryptographic cho phép server tổng 
 4. Server cập nhật global model
 
 ## 4. Protocol Flow
-![alt text](image.png)
+```mermaid
+sequenceDiagram
+    participant S as Server
+    participant C1 as Client 1
+    participant C2 as Client 2
+    
+    Note over S,C2: Phase 1: Setup & Key Exchange
+    
+    C1->>+S: Register(pubkey1)
+    C2->>+S: Register(pubkey2)
+    S-->>-C1: Send(pubkey2)
+    S-->>-C2: Send(pubkey1)
+    
+    C1-->>C2: Establish shared secret k12
+    Note over C1,C2: Both compute same k12
+    
+    Note over S,C2: Phase 2: Training & Masking
+    
+    S->>C1: Request update (round r)
+    S->>C2: Request update (round r)
+    
+    Note over C1: Train local model
+    Note over C2: Train local model
+    
+    Note over C1: Generate mask m12 = PRG(k12 || r)
+    Note over C2: Generate mask m21 = -PRG(k12 || r)
+    
+    Note over C1: u1' = u1 + m12
+    Note over C2: u2' = u2 + m21
+    
+    C1->>S: Send masked update u1'
+    C2->>S: Send masked update u2'
+    
+    Note over S: Phase 3: Secure Aggregation
+    Note over S: u1' + u2' = (u1 + m12) + (u2 + m21)
+    Note over S: = u1 + u2 + (m12 + m21)
+    Note over S: = u1 + u2 + 0
+    Note over S: = u1 + u2
+```
 ## 5. Chi Tiết Triển Khai 
 
 ### 5.1 Key Generation & Exchange
