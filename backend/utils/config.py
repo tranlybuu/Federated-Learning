@@ -30,22 +30,6 @@ MODEL_TEMPLATES = {
     'additional': os.path.join(MODEL_DIR, 'additional_model_round_{}.keras')
 }
 
-# Training mode và data ranges configuration
-TRAINING_CONFIG = {
-    'modes': ['initial', 'additional', 'test-only'],
-    'data_ranges': {
-        'initial': {
-            '0': (0, 3),  # Client 1: data 0-2
-            '1': (2, 5),  # Client 2: data 2-4
-        },
-        'additional': {
-            '0': (5, 8),  # Client 1: data 5-6
-            '1': (7, 10),  # Client 2: data 7-8
-            '2': (5, 10), # Client 3: data 5,9
-        }
-    }
-}
-
 # Federated Learning configuration
 FL_CONFIG = {
     # Số rounds cho mỗi mode

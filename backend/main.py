@@ -1,6 +1,6 @@
 import argparse
 from .utils.config import (
-    FL_CONFIG, API_CONFIG, TRAINING_CONFIG,
+    FL_CONFIG, API_CONFIG,
     MODEL_DIR, INITIAL_MODEL_PATH
 )
 from .federated_learning.flwr_server import start_server
@@ -121,7 +121,6 @@ def print_configuration(args):
     if args.server:
         print(f"Number of rounds: {args.num_rounds or FL_CONFIG['num_rounds'][args.mode]}")
         print(f"Minimum clients: {FL_CONFIG['min_fit_clients'][args.mode]}")
-        print(f"Data ranges: {TRAINING_CONFIG['data_ranges'][args.mode]}")
     elif args.client:
         print(f"Client ID: {args.cid}")
         print(f"Batch size: {args.batch_size}")

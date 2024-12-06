@@ -86,7 +86,6 @@ pip install -r requirements.txt
 Toàn bộ cấu hình được tập trung trong `utils/config.py`:
 
 - `MODEL_TEMPLATES`: Đường dẫn và template cho các model
-- `TRAINING_CONFIG`: Cấu hình cho các giai đoạn training
 - `FL_CONFIG`: Cấu hình Federated Learning
 - `DATA_CONFIG`: Cấu hình dữ liệu và training
 - `API_CONFIG`: Cấu hình API server
