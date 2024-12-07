@@ -1,10 +1,11 @@
 ```mermaid
 sequenceDiagram
     participant S as FL Server
+    participant MS as Model Storage
+    participant KS as Key Storage
     participant C1 as Client 1 (0-2)
     participant C2 as Client 2 (3-4)
-    participant KS as Key Storage
-    participant MS as Model Storage
+
 
     Note over S: Initialize System
     S->>S: Create initial CNN model
