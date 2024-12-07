@@ -1,8 +1,8 @@
 ```mermaid
 sequenceDiagram
+    participant S as FL Server
     participant C1 as Client 1 (0-2)
     participant C2 as Client 2 (3-4)
-    participant S as FL Server
     participant KS as Key Storage
     participant MS as Model Storage
 
