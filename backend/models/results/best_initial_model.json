@@ -1,78 +1,141 @@
 {
     "training_info": {
         "mode": "initial",
-        "total_rounds": 3,
-        "best_accuracy": 0.9122999906539917,
-        "final_accuracy": 0.9122999906539917,
-        "final_loss": 0.3015131950378418,
+        "total_rounds": 5,
+        "best_accuracy": 0.9542999863624573,
+        "final_accuracy": 0.9542999863624573,
+        "final_loss": 0.1784488558769226,
         "training_history": [
             {
                 "round": 1,
                 "mode": "initial",
-                "loss": 0.923854410648346,
-                "accuracy": 0.7767000198364258,
+                "loss": 0.41071274876594543,
+                "accuracy": 0.8672999739646912,
                 "num_clients": 2,
                 "client_metrics": [
                     {
-                        "client_id": "1",
-                        "accuracy": 0.7699999809265137,
-                        "loss": 1.2348673343658447
+                        "client_id": "2",
+                        "accuracy": 0.9212499856948853,
+                        "loss": 0.28084030747413635
                     },
                     {
-                        "client_id": "2",
-                        "accuracy": 0.7475000023841858,
-                        "loss": 1.144313097000122
+                        "client_id": "1",
+                        "accuracy": 0.9262499809265137,
+                        "loss": 0.2895887792110443
                     }
-                ]
+                ],
+                "active_clients": [
+                    "1",
+                    "2"
+                ],
+                "dropout_rate": 0.0
             },
             {
                 "round": 2,
                 "mode": "initial",
-                "loss": 0.4136204719543457,
-                "accuracy": 0.8734999895095825,
+                "loss": 0.2184269279241562,
+                "accuracy": 0.9347000122070312,
                 "num_clients": 2,
                 "client_metrics": [
                     {
-                        "client_id": "1",
-                        "accuracy": 0.8700000047683716,
-                        "loss": 0.41533660888671875
+                        "client_id": "2",
+                        "accuracy": 0.96875,
+                        "loss": 0.1156265065073967
                     },
                     {
-                        "client_id": "2",
-                        "accuracy": 0.8675000071525574,
-                        "loss": 0.4467471241950989
+                        "client_id": "1",
+                        "accuracy": 0.9612500071525574,
+                        "loss": 0.10637354850769043
                     }
-                ]
+                ],
+                "active_clients": [
+                    "1",
+                    "2"
+                ],
+                "dropout_rate": 0.0
             },
             {
                 "round": 3,
                 "mode": "initial",
-                "loss": 0.3015131950378418,
-                "accuracy": 0.9122999906539917,
+                "loss": 0.18159544467926025,
+                "accuracy": 0.9462000131607056,
+                "num_clients": 2,
+                "client_metrics": [
+                    {
+                        "client_id": "1",
+                        "accuracy": 0.9925000071525574,
+                        "loss": 0.03911222890019417
+                    },
+                    {
+                        "client_id": "2",
+                        "accuracy": 0.9937499761581421,
+                        "loss": 0.040716905146837234
+                    }
+                ],
+                "active_clients": [
+                    "1",
+                    "2"
+                ],
+                "dropout_rate": 0.0
+            },
+            {
+                "round": 4,
+                "mode": "initial",
+                "loss": 0.18023943901062012,
+                "accuracy": 0.9514999985694885,
+                "num_clients": 2,
+                "client_metrics": [
+                    {
+                        "client_id": "1",
+                        "accuracy": 1.0,
+                        "loss": 0.014753072522580624
+                    },
+                    {
+                        "client_id": "2",
+                        "accuracy": 0.9987499713897705,
+                        "loss": 0.016188986599445343
+                    }
+                ],
+                "active_clients": [
+                    "1",
+                    "2"
+                ],
+                "dropout_rate": 0.0
+            },
+            {
+                "round": 5,
+                "mode": "initial",
+                "loss": 0.1784488558769226,
+                "accuracy": 0.9542999863624573,
                 "num_clients": 2,
                 "client_metrics": [
                     {
                         "client_id": "2",
-                        "accuracy": 0.9300000071525574,
-                        "loss": 0.2656856179237366
+                        "accuracy": 0.9962499737739563,
+                        "loss": 0.017904875800013542
                     },
                     {
                         "client_id": "1",
-                        "accuracy": 0.9212499856948853,
-                        "loss": 0.28271496295928955
+                        "accuracy": 1.0,
+                        "loss": 0.00824587233364582
                     }
-                ]
+                ],
+                "active_clients": [
+                    "1",
+                    "2"
+                ],
+                "dropout_rate": 0.0
             }
         ]
     },
     "active_clients_info": {
         "count": 2,
         "client_ids": [
-            "2",
-            "1"
+            "1",
+            "2"
         ],
         "client_ranges": {
-            "2": {
+            "1": {
                 "range": [
                     0,
                     10
@@ -92,7 +155,7 @@
                 "description": "Training with all digits",
                 "phase": "initial"
             },
-            "1": {
+            "2": {
                 "range": [
                     0,
                     10
@@ -177,76 +240,6 @@
         },
         "per_client": [
             {
-                "client_id": 2,
-                "train": {
-                    "total_samples": 1000,
-                    "samples_per_label": {
-                        "0": 94,
-                        "1": 104,
-                        "2": 99,
-                        "3": 98,
-                        "4": 109,
-                        "5": 88,
-                        "6": 106,
-                        "7": 107,
-                        "8": 85,
-                        "9": 110
-                    },
-                    "labels_distribution": {
-                        "0": "9.40%",
-                        "1": "10.40%",
-                        "2": "9.90%",
-                        "3": "9.80%",
-                        "4": "10.90%",
-                        "5": "8.80%",
-                        "6": "10.60%",
-                        "7": "10.70%",
-                        "8": "8.50%",
-                        "9": "11.00%"
-                    }
-                },
-                "test": {
-                    "total_samples": 200,
-                    "samples_per_label": {
-                        "0": 16,
-                        "1": 29,
-                        "2": 28,
-                        "3": 19,
-                        "4": 18,
-                        "5": 22,
-                        "6": 14,
-                        "7": 17,
-                        "8": 17,
-                        "9": 20
-                    },
-                    "labels_distribution": {
-                        "0": "8.00%",
-                        "1": "14.50%",
-                        "2": "14.00%",
-                        "3": "9.50%",
-                        "4": "9.00%",
-                        "5": "11.00%",
-                        "6": "7.00%",
-                        "7": "8.50%",
-                        "8": "8.50%",
-                        "9": "10.00%"
-                    }
-                },
-                "allowed_labels": [
-                    0,
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9
-                ],
-                "description": "Training with all digits"
-            },
-            {
                 "client_id": 1,
                 "train": {
                     "total_samples": 1000,
@@ -315,8 +308,78 @@
                     9
                 ],
                 "description": "Training with all digits"
+            },
+            {
+                "client_id": 2,
+                "train": {
+                    "total_samples": 1000,
+                    "samples_per_label": {
+                        "0": 94,
+                        "1": 104,
+                        "2": 99,
+                        "3": 98,
+                        "4": 109,
+                        "5": 88,
+                        "6": 106,
+                        "7": 107,
+                        "8": 85,
+                        "9": 110
+                    },
+                    "labels_distribution": {
+                        "0": "9.40%",
+                        "1": "10.40%",
+                        "2": "9.90%",
+                        "3": "9.80%",
+                        "4": "10.90%",
+                        "5": "8.80%",
+                        "6": "10.60%",
+                        "7": "10.70%",
+                        "8": "8.50%",
+                        "9": "11.00%"
+                    }
+                },
+                "test": {
+                    "total_samples": 200,
+                    "samples_per_label": {
+                        "0": 16,
+                        "1": 29,
+                        "2": 28,
+                        "3": 19,
+                        "4": 18,
+                        "5": 22,
+                        "6": 14,
+                        "7": 17,
+                        "8": 17,
+                        "9": 20
+                    },
+                    "labels_distribution": {
+                        "0": "8.00%",
+                        "1": "14.50%",
+                        "2": "14.00%",
+                        "3": "9.50%",
+                        "4": "9.00%",
+                        "5": "11.00%",
+                        "6": "7.00%",
+                        "7": "8.50%",
+                        "8": "8.50%",
+                        "9": "10.00%"
+                    }
+                },
+                "allowed_labels": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9
+                ],
+                "description": "Training with all digits"
             }
         ]
     },
-    "timestamp": "2024-12-03 21:06:54"
+    "timestamp": "2024-12-06 20:31:27"
 }

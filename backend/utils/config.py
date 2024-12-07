@@ -34,7 +34,7 @@ MODEL_TEMPLATES = {
 FL_CONFIG = {
     # Số rounds cho mỗi mode
     'num_rounds': {
-        'initial': 3,
+        'initial': 5,
         'additional': 3,
     },
 
@@ -64,8 +64,8 @@ FL_CONFIG = {
 # Data và training configuration
 DATA_CONFIG = {
     # Training hyperparameters
-    'batch_size': 128,
-    'local_epochs': 3,
+    'batch_size': 64,
+    'local_epochs': 5,
     'learning_rate': 0.001,
     'validation_split': 0.2,
     
@@ -222,3 +222,28 @@ TEST_CONFIG = {
 # Create necessary directories
 for directory in [MODEL_DIR, RESULTS_CONFIG['save_dir'], MONITOR_CONFIG['monitoring_dir']]:
     os.makedirs(directory, exist_ok=True)
+
+SECURE_AGG_CONFIG = {
+    # Security parameters
+    'min_clients_for_unmasking': 2,  # Số clients tối thiểu để unmask
+    'key_size': 2048,  # RSA key size
+    'mask_scale': 0.1,  # Scale factor cho masks
+    
+    # Timeouts
+    'key_exchange_timeout': 30,  # Seconds
+    'masking_timeout': 30,
+    
+    # Paths
+    'key_storage': os.path.join(BASE_DIR, 'keys'),
+    
+    # Thresholds
+    'dropout_threshold': 0.5,  # Max allowed dropout rate
+    
+    # Features
+    'enable_dropout_recovery': True,
+    'enable_key_rotation': True,
+    'rotation_frequency': 10  # Rounds
+}
+
+# Create key storage directory
+os.makedirs(SECURE_AGG_CONFIG['key_storage'], exist_ok=True)

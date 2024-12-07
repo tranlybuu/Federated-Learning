@@ -1,3 +1,4 @@
+import os
 import flwr as fl
 import tensorflow as tf
 import numpy as np
@@ -5,10 +6,11 @@ import json
 import argparse
 from .model import create_model
 from ..utils.config import (
-    DATA_CONFIG, DATA_RANGES_INFO, DATA_SUMMARY_TEMPLATE,
+    DATA_CONFIG, DATA_RANGES_INFO, DATA_SUMMARY_TEMPLATE, SECURE_AGG_CONFIG,
     INITIAL_MODEL_PATH, CLIENT_MODEL_TEMPLATE, TEST_CONFIG, MODEL_DIR
 )
-import os
+from ..utils.crypto import CryptoUtils
+
 
 class MnistClient(fl.client.NumPyClient):
     def __init__(self, cid):  # Chỉ cần nhận cid
@@ -19,6 +21,26 @@ class MnistClient(fl.client.NumPyClient):
 
         # Load model mới nhất từ thư mục models
         self.model = self._load_latest_model()
+
+        # Setup crypto
+        self._setup_crypto()
+        
+        # Store masks for current round
+        self.current_masks = None
+        self.peer_pubkeys = {}
+
+    def _setup_crypto(self):
+        """Setup cryptographic components"""
+        # Generate key pair
+        self.private_key, self.public_key = CryptoUtils.generate_keypair()
+        
+        # Save public key
+        key_path = os.path.join(
+            SECURE_AGG_CONFIG['key_storage'], 
+            f'client_{self.cid}_pub.pem'
+        )
+        with open(key_path, 'wb') as f:
+            f.write(CryptoUtils.serialize_public_key(self.public_key))
 
     def _load_latest_model(self):
         """Load model mới nhất hoặc tạo model mới nếu chưa có."""
@@ -42,6 +64,14 @@ class MnistClient(fl.client.NumPyClient):
         return self.model.get_weights()
 
     def fit(self, parameters, config):
+        # Get peer public keys from config
+        self.peer_pubkeys = {
+            cid: CryptoUtils.deserialize_public_key(key_bytes)
+            for cid, key_bytes in config.get('peer_pubkeys', {}).items()
+            if cid != self.cid
+        }
+        
+        # Set model parameters
         self.model.set_weights(parameters)
 
         history = self.model.fit(
@@ -53,18 +83,45 @@ class MnistClient(fl.client.NumPyClient):
             verbose=config.get('verbose', 1)
         )
 
-        # Save model sau khi train
-        save_path = CLIENT_MODEL_TEMPLATE.format(f"client_{self.cid}")
-        self.model.save(save_path)
-        print(f"Saved client model to: {save_path}")
-
-        metrics = {
-            "accuracy": history.history['accuracy'][-1],
-            "loss": history.history['loss'][-1],
-            "client_id": self.cid
+        # Get model update
+        update = self.model.get_weights()
+        
+        # Generate masks for each peer
+        masks = []
+        for peer_id, peer_pubkey in self.peer_pubkeys.items():
+            # Generate shared key
+            shared_key = CryptoUtils.generate_shared_key(
+                self.private_key, 
+                peer_pubkey
+            )
+            
+            # Generate mask
+            mask = CryptoUtils.generate_mask(
+                shared_key,
+                config.get('round_id', 0),
+                [w.shape for w in update]
+            )
+            
+            if int(peer_id) > int(self.cid):
+                # Add mask if peer has higher ID
+                masks.append(mask)
+            else:
+                # Subtract mask if peer has lower ID
+                masks.append([-m for m in mask])
+                
+        # Combine all masks
+        total_mask = [sum(m) for m in zip(*masks)] if masks else [0] * len(update)
+        self.current_masks = total_mask
+        
+        # Apply mask to update
+        masked_update = CryptoUtils.apply_mask(update, total_mask)
+        
+        # Return masked update
+        return masked_update, len(self.x_train), {
+            'accuracy': history.history['accuracy'][-1],
+            'loss': history.history['loss'][-1],
+            'client_id': self.cid
         }
-
-        return self.model.get_weights(), len(self.x_train), metrics
 
     def evaluate(self, parameters, config):
         self.model.set_weights(parameters)
@@ -290,11 +347,6 @@ Supported modes:
 - initial: First training phase with data range 0-4
 - additional: Second training phase with data range 5-9
 - test-only: For inference only
-
-Example usage:
-  Initial training:    python flwr_client.py --mode initial --cid 0
-  Additional training: python flwr_client.py --mode additional --cid 0
-  Test only:          python flwr_client.py --mode test-only
 
 Note: Make sure the server is running before starting the client.
         """,

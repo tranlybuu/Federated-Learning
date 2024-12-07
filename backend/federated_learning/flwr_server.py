@@ -3,7 +3,7 @@ import tensorflow as tf
 from .model import create_model
 from ..utils.config import (
     FL_CONFIG, MODEL_DIR, DATA_SUMMARY_TEMPLATE,
-    MODEL_TEMPLATES, DATA_RANGES_INFO
+    MODEL_TEMPLATES, DATA_RANGES_INFO, SECURE_AGG_CONFIG
 )
 from datetime import datetime
 import os
@@ -19,6 +19,9 @@ class FederatedServer(fl.server.strategy.FedAvg):
         self.best_accuracy = 0.0
         self.active_clients = set()
         self.client_id_map = {}  # Theo dõi clients đang tham gia
+
+        # Store client public keys
+        self.client_pubkeys = {}
         
         # Khởi tạo hoặc load model dựa trên mode
         if mode == 'initial':
@@ -40,96 +43,148 @@ class FederatedServer(fl.server.strategy.FedAvg):
         
         print(f"\nInitializing server in {mode} mode")
 
-    def aggregate_fit(self, server_round, results, failures):
-        """Tổng hợp kết quả training từ clients."""
-        self.current_round = server_round
+    def _load_client_pubkeys(self):
+        """Load all available client public keys"""
+        key_dir = SECURE_AGG_CONFIG['key_storage']
+        for filename in os.listdir(key_dir):
+            if filename.startswith('client_') and filename.endswith('_pub.pem'):
+                client_id = filename.split('_')[1]
+                with open(os.path.join(key_dir, filename), 'rb') as f:
+                    self.client_pubkeys[client_id] = f.read()
 
+    def aggregate_fit(self, server_round, results, failures):
+        """Aggregate masked model updates từ các clients."""
+        self.current_round = server_round
+        
         print(f"\nRound {server_round} ({self.mode} mode):")
         print(f"Active clients: {len(results)}")
         print(f"Failures: {len(failures)}")
 
-        # Cập nhật danh sách clients đang tham gia
+        # Load client public keys 
+        self._load_client_pubkeys()
+
+        # Kiểm tra số lượng clients tối thiểu
+        if len(results) < SECURE_AGG_CONFIG['min_clients_for_unmasking']:
+            print(f"Insufficient clients for unmasking. Need at least {SECURE_AGG_CONFIG['min_clients_for_unmasking']}")
+            return None, {}
+
+        # Cập nhật danh sách clients đang hoạt động
+        active_client_ids = set()
         for client_proxy, fit_res in results:
             numeric_cid = fit_res.metrics.get('client_id')
             if numeric_cid:
                 self.client_id_map[client_proxy.cid] = str(numeric_cid)
                 self.active_clients.add(str(numeric_cid))
+                active_client_ids.add(str(numeric_cid))
+                
+        # Kiểm tra client dropouts
+        dropout_rate = 1 - (len(active_client_ids) / len(self.active_clients))
+        if dropout_rate > SECURE_AGG_CONFIG['dropout_threshold']:
+            print(f"High dropout rate detected: {dropout_rate:.2%}")
+            if not SECURE_AGG_CONFIG['enable_dropout_recovery']:
+                return None, {}
 
-        # Kiểm tra số lượng clients
+        # Validate yêu cầu của phase
         phase_reqs = DATA_RANGES_INFO['phase_requirements'][self.mode]
-        if len(self.active_clients) < phase_reqs['min_clients']:
+        if len(active_client_ids) < phase_reqs['min_clients']:
             raise ValueError(
                 f"Phase {self.mode} requires minimum {phase_reqs['min_clients']} clients, "
-                f"but only {len(self.active_clients)} are active"
+                f"but only {len(active_client_ids)} are active"
             )
-        if len(self.active_clients) > phase_reqs['max_clients']:
+        if len(active_client_ids) > phase_reqs['max_clients']:
             raise ValueError(
                 f"Phase {self.mode} allows maximum {phase_reqs['max_clients']} clients, "
-                f"but {len(self.active_clients)} are active"
+                f"but {len(active_client_ids)} are active"
             )
 
         if not results:
             return None, {}
 
-        # Collect training results
+        # Thu thập masked updates
         weights = []
         num_examples = []
         metrics = []
+        masked_updates = {}
 
         for client_proxy, fit_res in results:
-            client_weights = fl.common.parameters_to_ndarrays(fit_res.parameters)
-            weights.append(client_weights)
+            client_id = self.client_id_map.get(client_proxy.cid, 'unknown')
+            
+            # Lưu masked update từ client
+            masked_update = fl.common.parameters_to_ndarrays(fit_res.parameters)
+            masked_updates[client_id] = masked_update
+            
+            weights.append(masked_update)
             num_examples.append(fit_res.num_examples)
             metrics.append(fit_res.metrics)
-            numeric_cid = self.client_id_map.get(client_proxy.cid, 'unknown')
-            print(f"Client {numeric_cid} metrics: {fit_res.metrics}")
+            
+            print(f"Client {client_id} metrics: {fit_res.metrics}")
 
+        # Tính tổng số examples
         total_examples = sum(num_examples)
         if total_examples == 0:
             return None, {}
 
-        # Aggregate weights using weighted average
-        weighted_weights = [
-            np.sum([w[i] * n for w, n in zip(weights, num_examples)], axis=0) / total_examples
+        # Tổng hợp masked updates sử dụng weighted average
+        aggregated_weights = [
+            np.sum(
+                [w[i] * n for w, n in zip(weights, num_examples)], 
+                axis=0
+            ) / total_examples
             for i in range(len(weights[0]))
         ]
 
-        # Update model and evaluate
-        self.model.set_weights(weighted_weights)
+        # Update model toàn cục
+        self.model.set_weights(aggregated_weights)
+
+        # Đánh giá model mới
         test_loss, test_accuracy = self._evaluate_global_model()
         print(f"Round {server_round} results - Loss: {test_loss}, Accuracy: {test_accuracy}")
 
-        # Save results
+        # Lưu kết quả round
         round_metrics = {
             'round': server_round,
             'mode': self.mode,
             'loss': float(test_loss),
             'accuracy': float(test_accuracy),
             'num_clients': len(results),
-            'client_metrics': metrics
+            'client_metrics': metrics,
+            'active_clients': list(active_client_ids),
+            'dropout_rate': dropout_rate
         }
-
         self.round_results.append(round_metrics)
 
-        # Save best model if accuracy improved
+        # Kiểm tra và lưu best model
         if test_accuracy > self.best_accuracy:
             self.best_accuracy = test_accuracy
             best_model_path = MODEL_TEMPLATES['best'].format(self.mode)
             self.model.save(best_model_path)
             print(f"Saved best model with accuracy {test_accuracy:.4f}")
 
-        # Save current round model
+        # Lưu model của round hiện tại
         current_model_path = MODEL_TEMPLATES['global'].format(server_round)
         self.model.save(current_model_path)
 
-        # Save final results if this is the last round
+        # Kiểm tra nếu là round cuối
         if server_round == self.num_rounds:
             self._save_final_results()
 
-        return fl.common.ndarrays_to_parameters(weighted_weights), {
-            "loss": float(test_loss),
-            "accuracy": float(test_accuracy)
+        # Key rotation check
+        need_key_rotation = (
+            SECURE_AGG_CONFIG['enable_key_rotation'] and 
+            server_round % SECURE_AGG_CONFIG['rotation_frequency'] == 0
+        )
+
+        # Chuẩn bị config cho round tiếp theo
+        next_round_config = {
+            'round_id': server_round + 1,
+            'peer_pubkeys': self.client_pubkeys,
+            'need_key_rotation': need_key_rotation,
+            'active_clients': list(active_client_ids),
+            'dropout_threshold': SECURE_AGG_CONFIG['dropout_threshold'],
+            'secure_aggregation': True
         }
+
+        return fl.common.ndarrays_to_parameters(aggregated_weights), next_round_config
 
     def _evaluate_global_model(self):
         """Evaluate model on test data."""
