@@ -1,8 +1,8 @@
 ```mermaid
 sequenceDiagram
-    participant C1 as Client 1 (5-6)
-    participant C2 as Client 2 (7-8)
-    participant C3 as Client 3 (9)
+    participant C1 as Client 1
+    participant C2 as Client 2
+    participant C3 as Client 3
     participant S as FL Server
     participant KS as Key Storage
     participant MS as Model Storage
