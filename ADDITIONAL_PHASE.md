@@ -22,11 +22,11 @@ sequenceDiagram
         S->>C3: Send current model weights
         
         par Extended Training
-            C1->>C1: Train on digits 5-6
+            C1->>C1: Train on all digits
             Note over C1: 5 epochs, batch_size=64
-            C2->>C2: Train on digits 7-8
+            C2->>C2: Train on all digits
             Note over C2: 5 epochs, batch_size=64
-            C3->>C3: Train on digit 9
+            C3->>C3: Train on all digit
             Note over C3: 5 epochs, batch_size=64
         end
 
