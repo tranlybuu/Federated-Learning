@@ -1,4 +1,4 @@
-# Federated Learning for Handwriting Recognition
+# Federated Learning for Handwritten Digit Recognition
 
 Dự án này triển khai hệ thống Federated Learning cho bài toán nhận dạng chữ số viết tay sử dụng tập dữ liệu MNIST. Hệ thống được thiết kế theo mô hình client-server với ba giai đoạn training riêng biệt và một API server cho inference.
 
