@@ -23,9 +23,9 @@ sequenceDiagram
         S->>C2: Send global model weights
         
         par Local Training
-            C1->>C1: Train on digits 0-2
+            C1->>C1: Train on all digits
             Note over C1: 5 epochs, batch_size=64
-            C2->>C2: Train on digits 3-4 
+            C2->>C2: Train on all digits 
             Note over C2: 5 epochs, batch_size=64
         end
 
