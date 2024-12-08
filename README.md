@@ -115,13 +115,9 @@ rm backend/models/ -Recurse -Force
 ### 1. Initial Training Phase (Giai đoạn Training Ban đầu)
 
 Mục đích:
-- Xây dựng model cơ sở với dữ liệu từ các chữ số 0-4
+- Xây dựng model cơ sở với số lượng dữ liệu ít 
 - Sử dụng 2 clients để đảm bảo tính phân tán của dữ liệu
 - Tạo nền tảng cho giai đoạn training tiếp theo
-
-Phân chia dữ liệu:
-- Client 1: Dữ liệu của các chữ số 0, 1, 2
-- Client 2: Dữ liệu của các chữ số 3, 4
 
 Cách thực hiện:
 
@@ -141,22 +137,17 @@ python -m backend.federated_learning.flwr_client --cid 2
 ```
 
 Kết quả:
-- Model ban đầu được lưu tại `models/initial_model.keras`
+- Model ban đầu khởi tạo được lưu tại `models/initial_model.keras`
 - Các model trung gian được lưu theo rounds
-- Kết quả training được lưu trong `models/results/initial_training_results.json`
+- Kết quả training được lưu trong `models/results/best_initial_model.json`
 
 ### 2. Additional Training Phase (Giai đoạn Training Bổ Sung)
 
 Mục đích:
-- Mở rộng khả năng nhận dạng cho các chữ số 5-9
-- Cải thiện model ban đầu với dữ liệu mới
+- Mở rộng số lượng huấn luyện từ các client khác (3,4,5)
+- Cải thiện độ hiệu quả của model ban đầu với dữ liệu mới
 - Tận dụng kiến thức đã học từ giai đoạn initial
 - Thử nghiệm với số lượng clients lớn hơn (3 clients)
-
-Phân chia dữ liệu:
-- Client 1: Dữ liệu của các chữ số 5, 6
-- Client 2: Dữ liệu của các chữ số 7, 8
-- Client 3: Dữ liệu của các chữ số 5, 9
 
 Yêu cầu tiên quyết:
 - Đã hoàn thành Initial Training Phase
@@ -179,7 +170,7 @@ python -m backend.federated_learning.flwr_client --cid 5
 Kết quả:
 - Model cải tiến được lưu theo rounds
 - Model tốt nhất được lưu tại `models/best_additional_model.keras`
-- Kết quả training được lưu trong `models/results/additional_training_results.json`
+- Kết quả training được lưu trong `models/results/best_additional_model.json`
 
 ### 3. API Server (Server Phục vụ Dự đoán)
 
@@ -201,12 +192,7 @@ python -m backend.main --mode api
 
 Sử dụng API:
 
-1. Upload ảnh trực tiếp:
-```bash
-curl.exe -X POST -F "image=@digit.png" http://localhost:5000/recognize
-```
-
-2. Sử dụng URL ảnh:
+1. Sử dụng URL ảnh:
 ```bash
 # 1. Xem danh sách các models có sẵn:
 curl.exe http://localhost:5000/models
@@ -218,7 +204,7 @@ curl.exe -X POST -H "Content-Type: multipart/form-data" --data-binary "@backend/
 curl.exe http://localhost:5000/health
 ```
 
-3. Kiểm tra trạng thái:
+2. Kiểm tra trạng thái:
 ```bash
 curl.exe http://localhost:5000/health
 ```
@@ -265,7 +251,7 @@ Kết quả:
 - Matrix nhầm lẫn (confusion matrix)
 - Báo cáo chi tiết về hiệu suất
 
-### Quy trình Hoạt động Khuyến nghị:
+### Quy trình chuẩn:
 
 1. Initial Training:
    - Chạy initial training đầy đủ
@@ -368,7 +354,7 @@ Additional Training:
 
 ## Dependencies chính
 
-- Python ≥ 3.7
+- Python ≥ 3.7 (3.11.9)
 - TensorFlow
 - Flower
 - Flask
@@ -378,7 +364,7 @@ Additional Training:
 
 ## Đóng góp
 
-Vui lòng mở issue hoặc pull request nếu bạn muốn đóng góp cho project.
+Mở issue hoặc pull request nếu muốn đóng góp cho project.
 
 ## License
 
