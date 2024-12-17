@@ -314,7 +314,7 @@ export default {
     },
   },
   async created() {
-    // this.api_url = window.location
+    this.api_url = window.location
     if (window.innerWidth > 900) {
       this.qr_code_size = 400
     }
