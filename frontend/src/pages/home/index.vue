@@ -34,7 +34,7 @@
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div v-for="model in all_model"  :key="model.path" >
           <div @click="change_current_model(model.name)" class="cursor-pointer p-4 rounded-xl border-[2px] ease-in-out duration-200"
-              :class="[model.name == choosing_model ? 'bg-red-300 border-black' : 'bg-gray-100 border-gray-400']">
+            :class="[model.name == choosing_model ? 'bg-red-300 border-black' : 'bg-gray-100 border-gray-400']">
             <div  class="flex justify-between align-middle items-center">
               <p class="font-bold">Tên mô hình</p>
               <p>{{ model.name.replace(".keras", "") }}</p>
@@ -190,7 +190,7 @@
       </div>
       <label class="modal-backdrop" for="my_modal">Close</label>
     </div>
-    <div v-show="is_show_qr_code" @click="() => {is_show_qr_code = !is_show_qr_code}" class="absolute top-0 left-0 bottom-0 right-0 bg-white bg-opacity-70 backdrop-blur-sm">
+    <div v-show="is_show_qr_code" @click="() => {is_show_qr_code = !is_show_qr_code}" class="fixed top-0 left-0 bottom-0 right-0 bg-white bg-opacity-80 backdrop-blur-sm">
       <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 shadow-2xl shadow-gray-800 modal-box w-fit h-fit">
         <qrcode-vue 
           :value="api_url" :size="qr_code_size" level="H" render-as="svg"
@@ -270,8 +270,8 @@ export default {
           console.log("ERROR =>", error)
         });
     },
-    async get_overall_info() {
-      await axios.get(this.api_url + "model-stats/" + this.choosing_model, {timeout: 60000})
+    async get_overall_info(model) {
+      await axios.get(this.api_url + "model-stats/" + model, {timeout: 60000})
         .then(response => {
           this.overall_info = response.data
         })
@@ -282,10 +282,11 @@ export default {
     async get_all_model() {
       await axios.get(this.api_url + "health", {timeout: 60000})
         .then(response => {
+          this.get_overall_info(response.data.available_models[0].name)
           this.all_model = []
           for (let index in response.data.available_models) {
             let model = response.data.available_models[index]
-            if (model.name.includes("best_") || model.name.includes("initial")) {
+            if (!model.name.includes("best_")) {
               this.all_model.push(model)
             }
           }
@@ -297,7 +298,6 @@ export default {
     },
     change_current_model(name) {
       this.choosing_model = name
-      this.get_overall_info()
     },
     open_qr_code() {
       const modal = document.getElementById('scan_modal')
@@ -314,12 +314,11 @@ export default {
     },
   },
   async created() {
-    this.api_url = window.location
+    // this.api_url = window.location
     if (window.innerWidth > 900) {
       this.qr_code_size = 400
     }
     await this.get_all_model()
-    await this.get_overall_info()
     // this.get_non_label_dataset()
     this.isLoading = false
   }

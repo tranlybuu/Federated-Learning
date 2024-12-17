@@ -34,25 +34,25 @@ MODEL_TEMPLATES = {
 FL_CONFIG = {
     # Số rounds cho mỗi mode
     'num_rounds': {
-        'initial': 5,
+        'initial': 20,
         'additional': 3,
     },
 
     # Số clients tối thiểu cho mỗi mode
     'min_fit_clients': {
-        'initial': 2,
+        'initial': 3,
         'additional': 3,
     },
 
     # Số clients tối thiểu cho evaluation
     'min_evaluate_clients': {
-        'initial': 2,
+        'initial': 3,
         'additional': 3,
     },
 
     # Số clients tối thiểu cần có
     'min_available_clients': {
-        'initial': 2,
+        'initial': 3,
         'additional': 3,
     },
 
@@ -65,7 +65,7 @@ FL_CONFIG = {
 DATA_CONFIG = {
     # Training hyperparameters
     'batch_size': 64,
-    'local_epochs': 5,
+    'local_epochs': 1,
     'learning_rate': 0.001,
     'validation_split': 0.2,
     
@@ -75,7 +75,7 @@ DATA_CONFIG = {
     
     # Client configuration
     'num_clients': {
-        'initial': 2,
+        'initial': 3,
         'additional': 3,
     },
 }
@@ -120,7 +120,7 @@ DATA_RANGES_INFO = {
                 'range': (0, 10),
                 'labels': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                 'description': 'Training with all digits',
-                'phase': 'additional'
+                'phase': 'initial'
             },
             '4': {
                 'range': (0, 10),
@@ -137,8 +137,8 @@ DATA_RANGES_INFO = {
         },
     'phase_requirements': {
         'initial': {
-            'min_clients': 2,
-            'max_clients': 2
+            'min_clients': 3,
+            'max_clients': 5
         },
         'additional': {
             'min_clients': 3,

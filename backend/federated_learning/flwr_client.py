@@ -246,7 +246,7 @@ def load_data(cid):
     num_clients = DATA_CONFIG["num_clients"]["initial"] + DATA_CONFIG["num_clients"]["additional"]
     shard_size = len(x_train)//num_clients
     if (cid <= DATA_CONFIG["num_clients"]["initial"]):
-        shard_size = 1000
+        shard_size = 10000
     start = (cid-1) * shard_size
     end = start + shard_size
     x_train = x_train[start:end]
